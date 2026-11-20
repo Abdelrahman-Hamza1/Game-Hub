@@ -152,7 +152,7 @@ button { font: inherit; color: inherit; }
   font-family: var(--f-title); font-weight: 800; font-size: clamp(3rem, 12vw, 6rem); color: var(--threat);
   text-shadow: 0 0 30px rgba(255, 77, 109, 0.6); letter-spacing: -0.02em;
 }
-.fail-word small { display: block; font-family: var(--f-ui); font-weight: 500; font-size: 0.95rem; color: var(--muted); text-shadow: none; text-align: center; margin-top: 4px; }
+.fail-word small { display: block; letter-spacing: normal; font-family: var(--f-ui); font-weight: 500; font-size: 0.95rem; color: var(--muted); text-shadow: none; text-align: center; margin-top: 4px; }
 
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .stat { background: rgba(124, 150, 200, 0.08); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }

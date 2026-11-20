@@ -16,7 +16,7 @@ import { el, toast } from './ui/dom';
 import { AudioEngine } from './audio/audio';
 import { Captions } from './ui/captions';
 import { hubSoundOn, onHubSoundChange } from './hub';
-import type { Level } from './world/level';
+import { parseLevel, type Level, type LevelMeta } from './world/level';
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -87,6 +87,12 @@ class App {
   play(entry: LevelEntry): void {
     this.entry = entry;
     this.start(loadLevel(entry));
+  }
+
+  /** Play a level from text (editor, share codes). */
+  playCustom(text: string, meta: Partial<LevelMeta> = {}): void {
+    this.entry = null;
+    this.start(parseLevel(text, meta, 'custom'));
   }
 
   start(level: Level, checkpoint = false): void {

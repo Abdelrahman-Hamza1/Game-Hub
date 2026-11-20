@@ -76,7 +76,7 @@ export class Captions {
     const my = 70;
     const inside = s.x > mx && s.x < r.width - mx && s.y > my + 30 && s.y < r.height - my;
     let x = s.x;
-    let y = s.y - r.scale * 0.9;
+    let y = s.y - r.scale * 1.5;
     if (!inside) {
       const dx = s.x - cx;
       const dy = s.y - cy;
