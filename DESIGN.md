@@ -2,18 +2,20 @@
 
 A co-op climbing game for people who actually climb. Every player controls their own climber, four limbs at a time. The rope, the belay and the fall physics are modeled on the real thing, so the way a crew works together at the crag is the way you win.
 
-- **Players:** 2–4 online (local 2-player for development and couch play)
-- **Platforms:** browser (desktop and phone), gamepad, keyboard + mouse, touch
-- **Stack:** TypeScript, Vite, Three.js, Rapier (physics), Colyseus (server), WebRTC (proximity voice)
+- **Players:** 2–4 online (2 on one computer for development and couch play)
+- **Platforms:** desktop browser with keyboard + mouse first; phone browser as the last step of v1
+- **View:** 2D, side-on. The wall is the screen.
+- **Stack:** TypeScript, Vite, PixiJS (rendering), Rapier 2D (physics), Trystero (peer-to-peer rooms)
+- **Hosting:** GitHub Pages only. No server, no domain.
 
 ---
 
 ## 1. Pillars
 
-1. **Real rope work.** Leading, clipping, belaying, catching, anchors, swapping leads, cleaning gear. The rope is a simulated system, not an item.
-2. **Your partner is your lifeline.** Almost nothing can be done alone. The belayer's skill matters as much as the climber's.
-3. **Climbing feels like climbing.** One limb at a time, forearms that get pumped, holds that behave differently, conditions that change friction.
-4. **Made for a crew.** Rebuild your own gym and crag, record and share beta, log sends, argue about grades.
+1. **Real rope work.** Leading, clipping, belaying, catching, lowering. The rope is a simulated system, not an item.
+2. **Your partner is your lifeline.** The belayer's skill matters as much as the climber's.
+3. **Climbing feels like climbing.** One limb at a time, forearms that get pumped, holds that behave differently.
+4. **Made for a crew.** Share routes by link, log sends, argue about grades.
 
 ### Where it fits
 
@@ -21,102 +23,103 @@ Co-op climbing is a proven genre (PEAK, Chained Together), but in those games th
 
 ---
 
-## 2. Core loop: one pitch
+## 2. Scope of v1
 
-Every route is made of pitches, and every pitch is a two-person job. On multi-pitch routes the loop repeats with roles swapped.
+v1 is **Crag Day**: single-pitch sport routes on one crag, played in 2D, by 2–4 friends who take turns leading and belaying.
 
-1. **Partner check.** Both players check each other's knot, harness and belay device. (Hard-core: skipping it can leave a hidden mistake in place.)
-2. **Lead.** The leader climbs, manages pump and clips quickdraws.
-3. **Belay.** The belayer feeds slack, takes in, and catches falls.
-4. **Anchor.** At the top of the pitch the leader builds an anchor and calls "Off belay!"
-5. **Second.** The partner climbs on a top rope and cleans the gear.
-6. **Swap or descend.** Swap leads for the next pitch, or rappel. Stopper knots go in the rope ends first.
+Everything else in the original design is kept in [section 13, Later](#13-later) so the ideas aren't lost. Nothing there gets built until v1 is fun.
 
 ---
 
-## 3. Climbing
+## 3. Core loop: one route
 
-### 3.1 Limbs and controls
+Every route is a two-person job.
 
-The climber is a physics body. Each hand and foot is controlled separately; hands grab holds, feet carry weight.
+1. **Tie in.** One player leads, one belays. The others watch, call beta, or wait for their turn.
+2. **Lead.** The leader climbs, manages pump and clips the quickdraws.
+3. **Belay.** The belayer feeds slack, takes in, and catches falls.
+4. **Clip the anchor.** At the top the leader clips the anchor and calls "Take!"
+5. **Lower.** The belayer lowers the leader to the ground.
+6. **Log and swap.** The attempt is logged (send or not, and how), and roles rotate.
 
-| Action | Gamepad | Keyboard + mouse | Phone |
-|---|---|---|---|
-| Left hand | Hold LT to grip, left stick to reach | Hold left mouse button, move mouse | Hold left half of screen, drag |
-| Right hand | Hold RT, right stick | Hold right mouse button, move mouse | Hold right half, drag |
-| Feet | LB / RB step to highlighted foothold | Q / E | Tap foot markers |
-| Hips to the wall | Hold A | Hold Space | Two-finger hold |
-| Clip quickdraw | X when a draw is in reach | F | Tap the draw |
-| Chalk up / shake out | D-pad down / up | C / R | Tap chalk bag / shake gesture |
-| Calls | D-pad wheel | 1–8 | Call wheel |
+---
 
-### 3.2 Pump (forearm stamina)
+## 4. Climbing
+
+### 4.1 View and camera
+
+- Side-on 2D. The wall is a vertical plane facing the player; the climber is seen from behind.
+- The camera follows the leader vertically and keeps the belayer visible when the leader is low.
+- On phone the game runs in landscape.
+
+### 4.2 Limbs and controls
+
+The climber is a 2D physics body. Each hand and foot is controlled separately; hands grab holds, feet carry weight.
+
+Every key, button and touch maps to a **game action** (`leftHand.reach`, `clip`, `call.falling`, ...). The game only reads actions, so the phone layer is a new input source, not a rewrite.
+
+| Action | Keyboard + mouse (now) | Phone (step 10) |
+|---|---|---|
+| Left hand | Hold left mouse button, move mouse, release to grab | Hold left half of screen, drag |
+| Right hand | Hold right mouse button (trackpad: Shift + click) | Hold right half, drag |
+| Feet | Q / E step to the highlighted foothold | Foot buttons in the bottom corners |
+| Hips to the wall | Hold Space | Two-finger hold |
+| Clip quickdraw | F when a draw is in reach | Tap the draw |
+| Chalk up / shake out | C / R | Chalk bag / shake buttons |
+| Calls | 1–8 | Call wheel button |
+| Belay | ↓ feed slack, ↑ take in, Enter catch, Shift+Enter soft catch | Feed / take / catch buttons |
+
+### 4.3 Pump (forearm stamina)
 
 - Each forearm has its own pump meter (0–100%).
-- **Drain** per second while gripping = hold cost × body-position multiplier.
-  - Straight arm and hips to the wall: × 0.7
-  - Bent arm, or hips away from the wall: × 1.3
-  - Feet off (campusing): × 2.0
-- **Recover** when a hand is free and shaking out, or slowly while hanging on a jug.
+- **Drain** per second while gripping = hold cost × body-position multiplier × wall-angle multiplier.
+  - Body position: both feet on and hips in ×0.7; one foot or hips out ×1.0; feet off (campusing) ×2.0
+  - Wall angle: see [section 8](#8-difficulty)
+- **Recover** when a hand is free and shaking out, or slowly while hanging on a jug with feet on.
 - At 100% pump, that hand's grip fails after a short warning (shaking hand, sound cue).
-- Chalking up restores a small amount of grip on the next hold (friction bonus decays over time).
+- Chalking up gives a small friction bonus on the next hold that decays over time.
 
-### 3.3 Hold types
+### 4.4 Hold types
 
-| Hold | Grip cost | Rules |
+| Hold | Pump cost (%/s, tunable) | Rules |
 |---|---|---|
-| Jug | Low | Rest hold; pump recovers slowly while hanging |
-| Crimp | High | Strong; long full-crimps build finger-injury risk |
-| Sloper | Medium | Only holds with a straight arm and low hips; worse in heat |
-| Pinch | Medium | Works in any pull direction; rewards body tension |
-| Pocket | Medium–high | Finger choice matters; monos are strong and risky |
-
-### 3.4 Conditions
-
-Friction multiplier from temperature, humidity, shade and chalk. Slopers are most affected. Conditions change through the in-game day (morning shade, afternoon sun, evening cool-down), so the crew plans which routes to try when.
+| Jug | 3 | Rest hold; pump recovers slowly with feet on |
+| Pinch | 9 | Works in any pull direction; rewards body tension |
+| Sloper | 10 | Only holds with a straight arm and low hips |
+| Pocket | 12 | Strong but small |
+| Crimp | 14 | Strong and tiring |
 
 ---
 
-## 4. Rope system
+## 5. Rope system
 
-### 4.1 Simulation
-
-- The rope is a position-based (verlet) rope, about 60 m, split into segments.
+- A position-based (verlet) rope in 2D, about 60 m, split into fixed-length segments.
 - **Quickdraws are pulleys:** once clipped, the rope slides through them with friction. Zigzagging clips produce rope drag naturally.
-- **Belay device** is a constraint at the belayer that controls how much rope is let out (payout).
-- Rope ends: a stopper knot is a flag on the rope end. Without it, the end can slip through the device when lowering or rappelling.
-
-### 4.2 Clipping
-
-- The leader pulls up rope with one hand and clips with the same hand while the other grips.
-- Clipping takes time; the gripping hand drains pump the whole time.
-- **Back-clip chance** rises with pump. **Z-clip** happens if the rope is grabbed from below the previous clip.
+- **Belay device** is a constraint at the belayer that controls how much rope is let out.
+- **Clipping:** the leader pulls up rope with one hand and clips with the same hand while the other grips. Clipping takes time, and the gripping hand drains pump the whole time. Back-clip chance rises with pump.
 
 ---
 
-## 5. Belaying
+## 6. Belaying
 
 The belayer has the most important controls in the game. Good belaying should feel as skilled as good climbing.
 
 | Belay action | What it does |
 |---|---|
-| Feed slack | Pull rope through in rhythm as the leader climbs and reaches to clip. Too slow short-ropes the leader; too much makes falls longer. |
+| Feed slack | Pay out rope in rhythm as the leader climbs and reaches to clip. Too slow short-ropes the leader; too much makes falls longer. |
 | Take in | Keep the system snug near the ground or before a fall. |
 | Catch | Lock the brake hand when the fall starts, inside a short reaction window. A "Falling!" call from the leader widens the window. |
 | Soft catch | A hop as the rope comes tight: gentler catch, bigger drop. Badly timed, the climber slams into the wall. |
 | Lower | Ease the brake to bring the climber down smoothly. |
 
-**Devices:**
-- **Tube device:** the belayer must catch actively; best soft catches.
-- **Assisted-braking device:** locks by itself, catches harder, and can lock while feeding slack to a fast clipper (short-roping risk).
-
-**Weight:** a lighter belayer is lifted further on a big fall; a heavier one gives a harder catch. A ground anchor reduces lift.
+- **Device:** v1 uses a tube device (the belayer must catch actively). Assisted-braking devices are in Later.
+- **Weight:** a lighter belayer is lifted further on a big fall; a heavier one gives a harder catch.
 
 ---
 
-## 6. Falls
+## 7. Falls
 
-### 6.1 Game fall model
+### 7.1 Game fall model
 
 Tuned for feel and roughly consistent with real behavior. **This is a game model, not safety data.**
 
@@ -134,78 +137,112 @@ catch force (kN) = (2.2 + 4.2 × √FF) × (0.75 if soft) × (0.9 lighter belaye
 lowest point = C + h − total drop
 ```
 
-In the full game, drop and force come out of the rope simulation itself; this formula is the reference to tune it against.
+In the game, drop and force come out of the rope simulation itself; this formula is the reference to tune it against. A debug overlay shows drop, fall factor and force for every fall.
 
-### 6.2 Consequences
+### 7.2 Consequences
 
 | Result | Condition | Effect |
 |---|---|---|
-| Ground fall | lowest point < 0.6 m | Run ends; hard-core: injury |
-| Brutal catch | force > 5 kN | Grip stamina −40%, ankle injury chance |
+| Ground fall | lowest point < 0.6 m | Attempt ends |
+| Brutal catch | force > 5 kN | Grip stamina −40% |
 | Firm catch | force 3.6–5 kN | Grip stamina −20% |
 | Gentle catch | force < 3.6 kN | Shake it out and try again |
 
 ---
 
-## 7. Calls and communication
+## 8. Difficulty
 
-Quick-chat wheel with voice lines, plus proximity voice (WebRTC). Calls are also game signals.
+The challenge comes from how each route is set, the way it does on real rock: no enemies, no timers. A grade is a combination of the dials below, so a 6a and a 7a run on the same rules and only the numbers change.
 
-`On belay?` · `Belay on` · `Climbing` · `Clipping!` · `Slack!` · `Take!` · `Falling!` · `Got you` · `Lower` · `Off belay` · `Rock!` · `Watch me`
+### 8.1 The dials
+
+**Climbing (the holds)**
+- **Hold mix:** easy routes are mostly jugs; hard routes are crimps, slopers and pockets.
+- **Reach:** distance between holds as a share of the climber's reach. Easy routes stay well inside it; hard routes need full-span moves, crosses and matches.
+- **Feet:** fewer and smaller footholds put more weight on the arms. No feet means campusing (×2.0 pump).
+- **Wall angle:** steeper walls raise the drain on every hold.
+- **Rests:** how often a jug with good feet appears. Hard routes have long sections with nowhere to shake out.
+
+**Rope (the risk)**
+- **Bolt spacing:** longer runouts mean bigger falls.
+- **Clip positions:** bolts placed next to bad holds force the leader to clip while hanging on a crimp.
+- **Zigzag:** wandering bolt lines add rope drag, so the upper route gets heavier.
+- **First bolts:** a ground-fall zone low on the route puts pressure on the belayer to keep it tight.
+
+**Belaying (the second player's difficulty)**
+- Harder routes ask more of the belayer: fast clip sequences that need slack on time, runouts where a soft catch matters, overhangs where a bad catch swings the climber into the wall.
+- Optional dial: the catch window shrinks a little on harder grades.
+
+### 8.2 Wall angle multipliers
+
+| Angle | Pump multiplier |
+|---|---|
+| Slab | ×0.8 |
+| Vertical | ×1.0 |
+| Slight overhang (~20°) | ×1.3 |
+| Steep overhang (~45°) | ×1.6 |
+| Roof | ×2.0 |
+
+### 8.3 Grade recipes (starting values, to be tuned in step 4)
+
+| Grade (French / YDS) | Hold mix | Reach | Rests | Wall | Bolts |
+|---|---|---|---|---|---|
+| 5a / 5.7 | Mostly jugs | ≤ 60% | Every 3–4 moves | Slab / vertical | Every 2 m |
+| 6a / 5.10a | Jugs, some crimps and slopers | ≤ 75% | Every 5–6 moves | Vertical | Every 2.5 m |
+| 6c / 5.11a/b | Crimps, slopers, pinches | ≤ 85% | One mid-route | Slight overhang | Every 3 m |
+| 7a / 5.11d | Crimps, pockets, poor feet | ≤ 95% | One, before the crux | Overhang | 3–3.5 m, some clips off bad holds |
+| 7b+ / 5.12c | Crimps, slopers, pockets, few feet | Full span | None | Steep overhang / roof | Runouts |
+
+### 8.4 How a session scales
+
+- **Day energy:** each attempt spends some of the crew's energy for the day (start with enough for about 5–6 good attempts each). The crew decides whether to warm up on easy routes or spend tries on a project.
+- **Send styles are the progression:** onsight (first try, never seen the route), flash (first try after watching someone), redpoint (sent after practice). Cleaner styles count for more in the logbook.
+- **No unlocks.** The crag has 10–15 routes from 5a to 7b+. The next grade up is the goal, and routes friends share by link keep adding new ones.
+
+---
+
+## 9. Calls
+
+A call wheel with short voice lines. Voice chat is Discord; calls stay in the game because the game reads them.
+
+`On belay?` · `Belay on` · `Climbing` · `Clipping!` · `Slack!` · `Take!` · `Falling!` · `Got you` · `Lower` · `Watch me`
 
 - "Clipping!" warns the belayer to feed slack.
 - "Falling!" widens the belayer's catch window.
-- "Rock!" gives others a moment to protect their heads.
 - "Watch me" makes the belayer's rope-tension hint more visible.
 
 ---
 
-## 8. Hard-core layer: mistakes worth simulating
+## 10. Crag Day, routes and logbook
 
-| Mistake | Tell | Consequence |
-|---|---|---|
-| Back-clipping | Rope runs the wrong way through the draw | On a fall the rope can unclip itself: longer fall |
-| Z-clipping | Rope grabbed from below the previous clip | Huge rope drag; can't move up until fixed |
-| Rope behind leg | Rope crosses behind the leg | Fall flips the climber upside down; injury risk |
-| Short-roping | Belayer too slow on slack | Leader pulled off while clipping |
-| Too much slack | Loops on the ground | Longer falls; ground-fall risk at first bolts |
-| No stopper knot | Rope end has no knot | End slips through the device when lowering or rappelling |
-| Skipped partner check | Unfinished knot / unlocked carabiner | Hard-core: mistake persists until someone catches it |
-| Overcrimping | Long time on crimps and monos | Finger injury: weaker hand for the rest of the trip |
-| Rockfall | Loose holds | Call "Rock!"; helmets and belay position decide who gets hurt |
+- One crag with 10–15 routes from 5a to 7b+ (section 8.3).
+- **Routes as JSON**, shared as compressed codes in the URL, so a friend opens a link and gets the route.
+- **Logbook** in the browser (localStorage): ticks, attempts, send style.
+- **Grades:** French or YDS for routes, chosen in settings.
 
-Difficulty settings turn these on and off, plus: one life per run, no checkpoints, shared lives.
-
----
-
-## 9. Modes
-
-All modes reuse the same climbing, rope and belay systems.
-
-| Mode | Players | Summary | Twist |
-|---|---|---|---|
-| **Crag Day** (core) | 2–4 | Single-pitch sport routes; take turns leading and belaying; log onsight / flash / redpoint | Conditions change through the day |
-| **Multi-pitch** | 2–3 | 4–12 pitches; swap leads, build anchors, haul the bag, overnight on a portaledge | Water and food are in the haul bag; storms |
-| **Alpine Rope Team** | 3–4 | Everyone on one rope on a glacier; crevasse falls, self-arrest, pulley rescue (3:1 haul) | Altitude, cold, weather window |
-| **Boulder Session** | 2–6 | No ropes; others spot and move crash pads | Problems set by friends; flash bonus |
-| **Route Setter** | Any | Place holds on walls, set start/top, propose a grade, share a code | Rebuild your home gym or crag |
-| **Deep Water Solo** | 1–4 | Sea cliffs, no rope, fall into water | Tide: low tide creates no-fall zones |
-
----
-
-## 10. Crew features
-
-- **Your crag, rebuilt:** set real routes with real names and grades.
-- **Ghost beta:** record a send; friends race or copy the ghost.
-- **Grades your way:** V-scale / Font for boulders, YDS / French for routes.
-- **Logbook:** ticks, attempts, send style, first-ascent credit on routes you set.
-- **Crew stats:** falls caught, meters led, softest catch, who short-roped whom.
-- **Proximity voice:** shout down from the anchor; calls cut through when voice doesn't.
+```json
+{
+  "id": "K7QX-29",
+  "name": "Omar's Pinch",
+  "wall": "vertical-15m",
+  "angle": "vertical",
+  "grade": { "system": "French", "value": "6a+" },
+  "holds": [
+    { "type": "jug",   "pos": [1.2, 0.8], "rot": 0,  "role": "start" },
+    { "type": "pinch", "pos": [1.5, 1.6], "rot": 35, "role": "hand" },
+    { "type": "jug",   "pos": [1.1, 14.6], "rot": 0, "role": "top" }
+  ],
+  "bolts": [[1.3, 2.5], [1.4, 4.8], [1.2, 7.3]],
+  "anchor": [1.2, 15.0],
+  "fa": { "by": "Omar", "date": "2026-11-20" }
+}
+```
 
 Grade conversions used in the UI (approximate):
 
 | French | YDS |
 |---|---|
+| 5a | 5.7 |
 | 6a | 5.10a |
 | 6a+ | 5.10b |
 | 6b | 5.10c |
@@ -214,88 +251,113 @@ Grade conversions used in the UI (approximate):
 | 7a | 5.11d |
 | 7a+ | 5.12a |
 | 7b | 5.12b |
-| 8a | 5.13b |
-
-| V-scale | Font |
-|---|---|
-| V3 | 6A |
-| V4 | 6B |
-| V5 | 6C |
-| V6 | 7A |
-| V8 | 7B |
+| 7b+ | 5.12c |
 
 ---
 
 ## 11. Technical architecture
 
 ### 11.1 Climber
-- Ragdoll in Rapier (pelvis, torso, head, upper/lower arms and legs).
-- IK targets aim hands and feet; a grab creates a joint to the hold whose max force scales with remaining grip.
-- Body position (hips in/out, arm straightness) is measured from the ragdoll and feeds the pump multiplier.
+- 2D ragdoll in Rapier 2D: pelvis, torso, head, upper and lower arms and legs.
+- A grab creates a joint between the hand and the hold; its max force scales with remaining grip.
+- Body position (hips in or out, arm straightness, feet on) is measured from the ragdoll and feeds the pump multiplier.
 
 ### 11.2 Rope
-- Position-based rope: fixed segment length, 10–20 constraint iterations per step.
-- Clipped quickdraws act as pulley constraints: rope particles slide through with friction, and rope length redistributes between sections.
+- Position-based rope in 2D: fixed segment length, 10–20 constraint iterations per step.
+- Clipped quickdraws are pulley constraints: rope particles slide through with friction, and rope length redistributes between sections.
 - Belay device = payout constraint controlled by belayer input.
-- Peak tension during a catch is used as the catch force.
+- Peak tension during a catch is the catch force.
 
-### 11.3 Netcode
-- Colyseus server is authoritative for the rope, falls, holds breaking, and game state.
-- Clients predict their own limbs and send inputs; the server sends snapshots at 30 Hz with interpolation.
-- Belay inputs are timestamped so catch timing is fair under latency.
-- Matches are recorded as inputs + seed so desyncs can be replayed.
+### 11.3 Multiplayer
+- **Rooms by link:** `…/short-rope/?room=crag42`. The first player in becomes the host.
+- **Signaling:** Trystero, using free public relays, only to introduce browsers. Game data goes directly between browsers over WebRTC.
+- **Host-authoritative:** the host's browser runs the whole simulation (climbers, rope, falls). Guests send inputs; the host sends state snapshots about 30 times a second and guests interpolate.
+- **Fair catches:** belay inputs carry timestamps so catch timing is judged at the time the belayer pressed, not when the packet arrived.
+- **Known limitation:** without a relay server, a friend on a network that blocks direct connections (mostly mobile data) can't join from that network. Wi-Fi fixes it. A relay is only added if this becomes a real problem.
 
-### 11.4 Walls and routes
-- Wall meshes + a hold library (glTF), each hold tagged with type, size and grip vectors.
-- Routes stored as JSON (share codes are compressed JSON):
+### 11.4 Hosting
+- GitHub Pages, deployed by a GitHub Actions workflow on every push to `main`.
+- Vite `base` is set to `/short-rope/`.
 
-```json
-{
-  "id": "K7QX-29",
-  "name": "Omar's Pinch",
-  "wall": "gym-panel-45deg",
-  "grade": { "system": "V", "value": "V3" },
-  "holds": [
-    { "hold": "pinch-m-03", "pos": [1.2, 0.8, 0], "rot": 35, "role": "start" },
-    { "hold": "crimp-s-11", "pos": [1.5, 1.6, 0], "rot": 0, "role": "hand" },
-    { "hold": "jug-l-02",   "pos": [1.1, 3.9, 0], "rot": 0, "role": "top" }
-  ],
-  "bolts": [[1.3, 2.5, 0], [1.4, 5.0, 0]],
-  "fa": { "by": "Omar", "date": "2026-11-20" }
-}
-```
-
-### 11.5 Project layout (suggested)
+### 11.5 Project layout
 
 ```
-/client      Three.js game, input, UI
-/server      Colyseus rooms, authoritative sim
-/shared      physics step, rope, fall model, types (used by both)
-/content     walls, holds, routes (JSON)
+/src
+  /input     action layer: keyboard + mouse now, touch later
+  /sim       physics step, climber, rope, fall model, pump (pure logic, runs on the host)
+  /render    PixiJS drawing, camera, HUD
+  /net       Trystero rooms, snapshots, input messages
+  /ui        menus, logbook, call wheel
+/content     walls and routes (JSON)
 DESIGN.md    this document
-CLAUDE.md    how to run, test, and open 4 clients
+CLAUDE.md    how to run, build, test and deploy
 ```
 
 ---
 
-## 12. Milestones
+## 12. Build steps
 
-Every milestone ends with something the crew can play.
+Every step ends with something you can open in a browser. Steps 4 and 6 are fun checks: if it isn't fun yet, fix that before going on.
 
-| # | Goal | Done when |
+| # | Step | Done when |
 |---|---|---|
-| **M1** | One climber, four limbs, holds and pump on a 15 m test wall (local) | You can climb the wall with gamepad or keyboard, pump drains by hold type and body position, and grip fails at full pump |
-| **M2** | Rope and quickdraws; falls caught by a bot belayer | Clipping works (with back-clip chance), falls come from the rope sim, rope drag appears with zigzag clips, debug overlay shows drop / FF / force |
-| **M3** | A second local player belays | Slack, take, catch timing and soft catch all work; short-roping and ground falls can happen |
-| **M4** | Online for 2–4 players | Colyseus rooms, rope synced, call wheel and proximity voice work across two computers |
-| **M5** | Route setter, logbook and ghost beta | Routes can be built, shared by code and climbed; sends are logged; ghosts replay |
-| **M6** | Multi-pitch and Alpine modes, hard-core mistakes | Anchors, swapping leads, rappelling, crevasse rescue, and the mistakes table with difficulty toggles |
+| 1 | Trim DESIGN.md | This document describes only what these steps build |
+| 2 | Repo and live URL | A blank 15 m wall loads at the GitHub Pages URL |
+| 3 | Climber with four limbs | You can climb to the top with mouse and keys |
+| 4 | Pump and hold types (**fun check**) | Climbing alone is fun |
+| 5 | Rope, quickdraws, falls | Falls feel right and roughly match section 7.1, with a bot belayer catching |
+| 6 | A friend belays on the same PC (**fun check**) | Two people at one keyboard are laughing |
+| 7 | Online with a room link | Two friends climb together from two houses |
+| 8 | Calls | A session can be played using only calls |
+| 9 | Routes and logbook | A friend opens a link and gets your route; sends are logged |
+| 10 | Phone | A friend on a phone belays a friend on a laptop |
 
 ---
 
-## 13. Open questions
+## 13. Later
 
-- Third-person camera vs. a side-on 2.5D camera for phone play?
-- How much assistance (auto foot placement, IK snapping) for players who don't climb?
-- Do we ship with real crags (permission from local climbing communities) or fictional ones plus the editor?
-- Voice: built-in WebRTC, or rely on Discord and keep only quick-chat?
+Kept from the original design, built only after v1 is fun.
+
+**Modes**
+
+| Mode | Players | Summary |
+|---|---|---|
+| Multi-pitch | 2–3 | 4–12 pitches; swap leads, build anchors, second and clean, haul the bag, portaledge nights, storms |
+| Alpine Rope Team | 3–4 | Everyone on one rope on a glacier; crevasse falls, self-arrest, 3:1 haul rescue, weather window |
+| Boulder Session | 2–6 | No ropes; others spot and move crash pads; problems set by friends |
+| Route Setter | Any | In-game editor for holds, bolts and grades (v1 routes are hand-written JSON) |
+| Deep Water Solo | 1–4 | Sea cliffs, fall into water; low tide creates no-fall zones |
+
+**Hard-core mistakes** (difficulty toggles)
+
+| Mistake | Consequence |
+|---|---|
+| Back-clipping | On a fall the rope can unclip itself: longer fall |
+| Z-clipping | Huge rope drag until fixed |
+| Rope behind leg | Fall flips the climber upside down |
+| No stopper knot | Rope end slips through the device when lowering |
+| Skipped partner check | Unfinished knot or unlocked carabiner persists until caught |
+| Overcrimping | Finger injury: weaker hand for the rest of the session |
+| Rockfall | Call "Rock!"; helmets and belay position decide who gets hurt |
+
+Plus: one life per run, no checkpoints, shared lives.
+
+**Other**
+- Conditions: friction from temperature, humidity, shade and chalk; changing through the day
+- Assisted-braking belay device (locks by itself, harder catches, can short-rope a fast clipper)
+- Ghost beta (record a send, friends race or copy the ghost)
+- Crew stats (falls caught, meters led, softest catch, who short-roped whom)
+- Boulder grades (V-scale / Font)
+- Gamepad
+- Built-in proximity voice
+- A relay (TURN) server, if mobile players can't connect
+- 3D, if 2D ever feels limiting
+
+---
+
+## 14. Open questions
+
+- How much assistance (auto foot placement, grab snapping) for players who don't climb?
+- Real crags (with permission from local communities) or fictional ones?
+- Day energy: how many attempts per session feels right?
+- Should the catch window shrink on harder grades, or stay fixed?
