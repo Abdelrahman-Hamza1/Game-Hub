@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>About · Game Night</title>
+  <meta name="description" content="What Game Night is and how rooms work.">
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+  <script>try{var t=JSON.parse(localStorage.getItem('gn:theme'));if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@500;700&display=swap">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <style>
+    .about { padding-block: 40px 64px; display: grid; gap: 40px; }
+    .about section { display: grid; gap: 12px; max-width: 68ch; }
+    .about p, .about li { color: var(--muted); }
+    .about ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+    .about strong { color: var(--ink); }
+    .ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; max-width: none !important; }
+    .way { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start; border-top: 6px solid var(--c); }
+    .way h3 { font-size: 1.05rem; }
+    .way p { font-size: .92rem; }
+    .log { list-style: none; padding: 0 !important; }
+    .log li { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding-block: 10px; border-bottom: 1px solid var(--line); }
+    .log time { font-family: var(--f-mono); font-size: .8rem; color: var(--ink); padding-top: 2px; }
+    @media (max-width: 520px) { .log li { grid-template-columns: 1fr; gap: 2px; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="logo" href="./"><span class="token" aria-hidden="true"></span>Game Night</a>
+      <nav class="nav" aria-label="Main">
+        <a href="./">Games</a>
+        <a href="about.html" aria-current="page">About</a>
+      </nav>
+      <div class="end">
+        <button class="icon-btn" type="button" data-theme-toggle aria-label="Switch theme"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap about">
+    <section>
+      <p class="eyebrow">About</p>
+      <h1>Small games for a quick break or a night in with friends.</h1>
+      <p>Game Night is a collection of small games that run in your browser. There's nothing to install and no account to make. New games get added over time.</p>
+    </section>
+
+    <section class="ways">
+      <div class="way c-sky"><h3>Solo</h3><p>Play on your own. Scores and progress stay saved in this browser.</p></div>
+      <div class="way c-mint"><h3>Same screen</h3><p>Pass one phone or share one keyboard and take turns.</p></div>
+      <div class="way c-red"><h3>Online rooms</h3><p>Create a room, send friends the 4-letter code, and pick games together from the lobby.</p></div>
+    </section>
+
+    <section>
+      <h2>How rooms work</h2>
+      <ul>
+        <li><strong>The host's browser runs the room.</strong> Players connect directly to the host (peer-to-peer), so there's no game server.</li>
+        <li><strong>If the host leaves, the room closes.</strong> Anyone can start a new one in a second.</li>
+        <li><strong>Rooms hold up to 8 players.</strong> Each game says how many players it needs.</li>
+        <li><strong>Some networks block direct connections</strong>, like certain school or office Wi-Fi. If joining keeps failing, try mobile data.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Privacy</h2>
+      <p>Game Night has no accounts and no tracking. Your name, scores, and settings are saved only in your own browser. In a room, your name and game moves go straight to the other players. A public matchmaking service (PeerJS) introduces browsers to each other, but game data doesn't go through it.</p>
+    </section>
+
+    <section>
+      <h2>What's new</h2>
+      <ul class="log">
+        <li><time datetime="2026-11-20">2026-11-20</time><span>Game Night opens. The home page, rooms, and lobby are ready, and the first games are coming soon.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <span>Game Night · small games, solo or together</span>
+      <span><a href="https://github.com/Abdelrahman-Hamza1/Game-Hub">Source on GitHub</a></span>
+    </div>
+  </footer>
+
+  <script src="assets/js/core.js"></script>
+  <script>GN.initPage();</script>
+</body>
+</html>

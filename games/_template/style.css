@@ -1,0 +1,21 @@
+.tap {
+  flex: 1;
+  display: grid; gap: 14px; justify-items: center; align-content: center; text-align: center;
+  padding: 32px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px));
+}
+.big-num { font-family: var(--f-mono); font-weight: 700; font-size: clamp(4rem, 18vw, 7rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.tap-btn {
+  appearance: none; border: 0; cursor: pointer; touch-action: manipulation;
+  width: min(220px, 60vw); aspect-ratio: 1; border-radius: 50%;
+  background: var(--g-sky); color: #fff; font: 800 1.6rem/1 var(--f-head);
+  box-shadow: 0 8px 0 color-mix(in srgb, var(--g-sky) 60%, #000);
+  transition: transform .05s ease, box-shadow .05s ease;
+}
+.tap-btn:active { transform: translateY(6px); box-shadow: 0 2px 0 color-mix(in srgb, var(--g-sky) 60%, #000); }
+.tap-btn:disabled { opacity: .5; cursor: default; }
+
+.board { list-style: none; margin: 8px 0 0; padding: 0; width: min(420px, 100%); display: grid; gap: 6px; }
+.board li { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.board .nm { font-weight: 500; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .n { font-family: var(--f-mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+.host-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }

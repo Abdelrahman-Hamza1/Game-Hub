@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tap Test · Game Night</title>
+  <link rel="icon" href="../../assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@500;700&display=swap">
+  <!-- Optional: the site's colors, fonts, and buttons. Drop it if your game has its own look. -->
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- The Game Night bar is added above this automatically (outside rooms). -->
+  <main class="tap">
+    <p class="eyebrow" id="mode-label">Solo</p>
+    <p class="big-num" id="count" aria-live="polite">0</p>
+    <p class="muted" id="status">Tap the button to start a 10-second round.</p>
+    <button class="tap-btn" id="tap-btn" type="button">Tap</button>
+    <p class="muted" id="best"></p>
+
+    <!-- Room only -->
+    <ol class="board" id="board" hidden></ol>
+    <div class="host-row" id="host-row" hidden>
+      <button class="btn ghost" type="button" id="reset-btn">Reset counts</button>
+      <button class="btn primary" type="button" id="finish-btn">Finish and go to lobby</button>
+    </div>
+  </main>
+
+  <script src="../../shared/gamenight.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

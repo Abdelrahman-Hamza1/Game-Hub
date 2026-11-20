@@ -1,0 +1,15 @@
+[
+  {
+    "id": "_template",
+    "title": "Tap Test",
+    "blurb": "The starter template. Tap fast alone, or tap together in a room to check connections.",
+    "players": [1, 8],
+    "modes": ["solo", "online"],
+    "color": "sky",
+    "pattern": "dots",
+    "tags": ["test"],
+    "added": "2026-11-20",
+    "howTo": "Solo: tap as many times as you can in 10 seconds.\nIn a room: everyone's taps show up live. The host can reset or finish the round.",
+    "dev": true
+  }
+]
