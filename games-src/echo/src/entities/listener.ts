@@ -122,8 +122,9 @@ export function updateListener(g: Game, L: Listener, dt: number): void {
  */
 function pickPatrol(g: Game, L: Listener): void {
   const R = LISTENER_PATROL_RANGE;
-  const around = g.fields.get(L.at, R);
-  const home = g.fields.get(L.home, R);
+  // Walking distances: crystal amplifies sound, not legs.
+  const around = g.fields.get(L.at, R, false);
+  const home = g.fields.get(L.home, R, false);
   const candidates: number[] = [];
   for (let i = 0; i < around.dist.length; i++) {
     const d = around.dist[i];
@@ -132,7 +133,7 @@ function pickPatrol(g: Game, L: Listener): void {
   L.stateSince = g.t;
   if (candidates.length) {
     L.patrolTarget = g.rng.pick(candidates);
-    L.field = g.fields.get(L.patrolTarget, R + 1);
+    L.field = g.fields.get(L.patrolTarget, R + 1, false);
     return;
   }
   if (home.dist[L.at] <= R) {
@@ -143,7 +144,7 @@ function pickPatrol(g: Game, L: Listener): void {
   }
   // Far from its post (after a hunt): walk home.
   L.patrolTarget = L.home;
-  L.field = g.fields.get(L.home, 200);
+  L.field = g.fields.get(L.home, 200, false);
 }
 
 /** Walk downhill on L.field. Returns true when it has arrived (no lower neighbour). */

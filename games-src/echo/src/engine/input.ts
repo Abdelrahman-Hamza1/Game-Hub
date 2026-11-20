@@ -73,6 +73,10 @@ export class Input {
     const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
     if (typing) return;
     if (e.code === 'F3') { e.preventDefault(); this.meta.push('debug'); return; }
+    // Pause / retry work even while gameplay input is off (pause menu, fail screen); the app
+    // decides whether they apply.
+    if (!e.repeat && (e.code === 'Escape' || e.code === 'KeyP')) { this.meta.push('pause'); return; }
+    if (!e.repeat && e.code === 'KeyR') { this.meta.push('retry'); return; }
     if (!this.enabled) return;
     if (SWALLOW.has(e.code)) e.preventDefault();
     this.setDevice('keyboard');
@@ -83,8 +87,6 @@ export class Input {
       case 'Space': this.edges.add('clap'); break;
       case 'KeyQ': this.edges.add('cane'); break;
       case 'KeyE': this.edges.add('hand'); break;
-      case 'Escape': case 'KeyP': this.meta.push('pause'); break;
-      case 'KeyR': this.meta.push('retry'); break;
     }
   }
 
@@ -288,7 +290,22 @@ export class Input {
     return Math.hypot(ax, ay) > 0.4 ? { x: ax, y: ay } : null;
   }
 
+  /**
+   * Treat every gamepad button currently held as "already seen", so a press that opened or closed
+   * a menu doesn't also count as a fresh press on the other side (e.g. A on "Play" → a clap).
+   */
+  syncPad(): void {
+    const pad = this.pad();
+    if (!pad) return;
+    pad.buttons.forEach((b, i) => {
+      this.padPrev[i] = b.pressed;
+      this.menuPrev[i] = b.pressed;
+    });
+    this.menuAxisHeld = Math.abs(pad.axes[0] ?? 0) > 0.6 || Math.abs(pad.axes[1] ?? 0) > 0.6;
+  }
+
   resetHeld(): void {
+    this.syncPad();
     this.keys.clear();
     this.touch = null;
     this.edges.clear();

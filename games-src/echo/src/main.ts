@@ -12,7 +12,8 @@ import { LEVELS, loadLevel, nextLevel, type LevelEntry } from './levels';
 import { loadProgress, loadSettings, mergeBest, saveProgress, saveSettings, type LevelBest, type Progress, type Settings } from './storage';
 import { Hud } from './ui/hud';
 import { TouchControls } from './ui/touch';
-import { el, toast } from './ui/dom';
+import { el, toast as rawToast } from './ui/dom';
+import { wordFor } from './ui/wording';
 import { AudioEngine } from './audio/audio';
 import { Captions } from './ui/captions';
 import { hubSoundOn, onHubSoundChange } from './hub';
@@ -21,6 +22,9 @@ import { generateCave } from './world/cavegen';
 import {
   chapterScreen, continueLevel, focusFirst, isUnlocked, pauseScreen, resultsScreen, settingsScreen, titleScreen,
 } from './ui/screens';
+
+let wording: (t: string) => string = (t) => t;
+const toast = (text: string, ms?: number) => rawToast(wording(text), ms);
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -68,9 +72,12 @@ class App {
       playerFacing: () => this.game?.player.facing ?? 0,
     });
     this.hud = new Hud(document.getElementById('hud')!, () => this.input.pressMeta('pause'));
-    this.touch = new TouchControls(document.getElementById('touch')!, this.input);
+    this.touch = new TouchControls(document.getElementById('touch')!, this.input, (on) => {
+      this.renderer.bottomInset = on ? 170 : 0;
+    });
     this.input.onDeviceChange = (d) => this.touch.show(d === 'touch' && this.mode === 'play' && !this.paused);
     if (matchMedia('(pointer: coarse)').matches) this.input.lastDevice = 'touch';
+    wording = (t) => wordFor(t, this.input.lastDevice);
     this.captions = new Captions(document.getElementById('captions')!, this.renderer);
     this.captions.enabled = this.settings.captions;
     this.loop = new Loop((dt) => this.update(dt), (dt) => this.render(dt));
@@ -128,6 +135,7 @@ class App {
   }
 
   private enterMenu(): void {
+    this.input.syncPad();
     this.mode = 'menu';
     this.paused = false;
     this.input.enabled = false;
@@ -250,7 +258,7 @@ class App {
     this.hud.show(true);
     this.touch.reset();
     this.touch.show(this.input.lastDevice === 'touch');
-    if (!cp) this.hud.showHint(level.meta.hint);
+    if (!cp) this.hud.showHint(wording(level.meta.hint));
     else toast('Back at your last tourist.');
     this.canvas.focus({ preventScroll: true });
   }
@@ -312,6 +320,7 @@ class App {
       backLabel = 'Title';
     }
     this.mode = 'menu';
+    this.input.syncPad();
     this.setScreen(resultsScreen(g.level.meta.name, r, prev, g.level.meta.parTime, {
       retry: () => {
         this.mode = 'play';
@@ -367,8 +376,14 @@ class App {
   private update(dt: number): void {
     for (const m of this.input.takeMeta()) {
       if (m === 'debug') this.debug = !this.debug;
-      else if (m === 'retry' && this.mode === 'play' && !this.paused) this.retry();
-      else if (m === 'pause' && this.mode === 'play') this.togglePause();
+      else if (m === 'retry' && this.mode === 'play' && !this.paused) {
+        // A retry during the fail screen still counts the fail (hard-core chapter restarts).
+        if (this.game?.status === 'failed') this.onFailed();
+        else this.retry();
+      } else if (m === 'pause' && this.mode === 'play') {
+        if (this.paused && this.onEscape) this.onEscape();
+        else this.togglePause();
+      }
     }
     if (this.mode !== 'play' || this.paused) this.menuGamepad();
     const g = this.game;
@@ -393,7 +408,7 @@ class App {
     this.frameEvents = [];
     const opts = this.renderOpts();
     this.renderer.onEvents(events, opts);
-    if (this.mode === 'play') for (const e of events) this.onEvent(e);
+    if (!g.attract) for (const e of events) this.onEvent(e);
     this.renderer.render(g, this.paused ? 0 : dt, opts);
     if (!g.attract) this.hud.update(g);
     const heard = this.audio.handle(g, events);
@@ -448,7 +463,7 @@ class App {
     this.failShown = true;
     this.hud.hideHint();
     const node = el('div', { class: 'fail-word', role: 'alert' },
-      el('div', {}, reason, el('small', { text: 'Press R to retry now' })));
+      el('div', {}, reason, el('small', { text: wording('Press R to retry now') })));
     this.screen.replaceChildren(node);
     this.onEscape = null;
   }

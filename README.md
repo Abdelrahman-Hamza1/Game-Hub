@@ -68,6 +68,13 @@ To test a room, open `http://localhost:8000/room.html` in one window, then join 
 | `howTo` | | Shown from the "How to play" button. Use `\n` for line breaks. |
 | `dev` | | `true` hides the game unless dev mode is on. |
 
+### Games with a build step
+
+A game can be built with tooling instead of hand-written HTML. **Echo** is one: its TypeScript
+source lives in `games-src/echo/`, and `npm run build` there writes the static game into
+`games/echo/`. Commit both, because GitHub Pages serves the files as they are. See
+`games-src/echo/CLAUDE.md`.
+
 ## The game SDK (`shared/gamenight.js`)
 
 ```js
@@ -114,5 +121,6 @@ assets/css/   base.css (tokens + shared parts), hub.css, room.css
 assets/js/    core.js (site helpers), hub.js, room.js
 assets/icons/ favicon.svg
 shared/       gamenight.js (the SDK every game includes)
-games/<id>/   one folder per game
+games/<id>/   one folder per game (static files the site serves)
+games-src/    source for games that have a build step (e.g. echo/)
 ```

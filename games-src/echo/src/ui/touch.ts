@@ -5,7 +5,11 @@ import { el } from './dom';
 export class TouchControls {
   private sneak: HTMLButtonElement;
 
-  constructor(private readonly root: HTMLElement, private readonly input: Input) {
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly input: Input,
+    private readonly onShow: (on: boolean) => void = () => undefined,
+  ) {
     const btn = (label: string, cls: string, act: () => void, title: string) => {
       const b = el('button', { class: 'tbtn ' + cls, type: 'button', 'aria-label': title, text: label });
       b.addEventListener('pointerdown', (e) => {
@@ -37,6 +41,7 @@ export class TouchControls {
   show(on: boolean): void {
     this.root.hidden = !on;
     document.getElementById('app')?.classList.toggle('touch-on', on);
+    this.onShow(on);
   }
 
   reset(): void {

@@ -4,7 +4,7 @@
  */
 import type { Game } from '../game/game';
 import {
-  TOURIST_BREATH_EVERY, TOURIST_BREATH_RADIUS, TOURIST_CALL_EVERY, TOURIST_CALL_RADIUS,
+  HAND_REACH, TOURIST_BREATH_EVERY, TOURIST_BREATH_RADIUS, TOURIST_CALL_EVERY, TOURIST_CALL_RADIUS,
   TOURIST_FOLLOW_GAP, TOURIST_PANIC_AFTER,
 } from '../game/constants';
 import type { Player } from './player';
@@ -45,6 +45,14 @@ export function updateTourist(g: Game, T: Tourist, p: Player, dt: number): void 
         break;
       }
       if (now < p.graceUntil) break; // hand briefly free: stand still
+      if (p.graceUntil > 0) {
+        // Grace over: take the hand again only if they're still within reach (DESIGN.md decision 6).
+        p.graceUntil = 0;
+        if (Math.hypot(T.x - p.x, T.y - p.y) > HAND_REACH + 0.3) {
+          g.releaseTourist(T);
+          break;
+        }
+      }
       follow(T, p, dt);
       // Got separated (e.g. the player was moved): let go.
       if (Math.hypot(T.x - p.x, T.y - p.y) > 4) {

@@ -41,6 +41,9 @@ export class Renderer {
   private viewW = 40;
   private viewH = 22;
   private time = 0;
+  /** Screen pixels covered by on-screen controls at the bottom (touch); the camera keeps Mira above them. */
+  bottomInset = 0;
+  private colorCache: string[] = [];
 
   constructor(readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -52,7 +55,9 @@ export class Renderer {
     const rect = this.canvas.getBoundingClientRect();
     this.width = Math.max(1, rect.width);
     this.height = Math.max(1, rect.height);
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    // Phones have very dense screens; 1.5× is visually identical for glowing tiles and much cheaper.
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches;
+    this.dpr = Math.min(coarse ? 1.5 : 2, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(this.width * this.dpr);
     this.canvas.height = Math.round(this.height * this.dpr);
     // ~26 tiles across a portrait phone, 40 on desktop (brief §5.1).
@@ -76,9 +81,11 @@ export class Renderer {
     const L = game.level;
     const tx = game.attract ? L.w / 2 : game.player.x;
     const ty = game.attract ? L.h / 2 : game.player.y;
-    const clampAxis = (v: number, size: number, view: number) =>
-      size <= view ? size / 2 : Math.max(view / 2, Math.min(size - view / 2, v));
-    return { x: clampAxis(tx, L.w, this.viewW), y: clampAxis(ty, L.h, this.viewH) };
+    const clampAxis = (v: number, size: number, view: number, extra = 0) =>
+      size + extra <= view ? (size + extra) / 2 : Math.max(view / 2, Math.min(size + extra - view / 2, v));
+    // With touch controls, push the view so Mira sits in the area above them.
+    const inset = game.attract ? 0 : this.bottomInset / this.scale;
+    return { x: clampAxis(tx, L.w, this.viewW), y: clampAxis(ty + inset / 2, L.h, this.viewH, inset) };
   }
 
   screenToWorld(sx: number, sy: number): { x: number; y: number } {
@@ -249,10 +256,21 @@ export class Renderer {
         if (kb < 0) continue;
         const b = mem.bright[kb];
         if (b < 0.012) continue;
-        const base = L.mossy[t] ? MOSS_WALL : MAT_COLOR[L.mat[t] as Mat];
-        const color = wallColor(base, mem.kind[kb], hc);
-        ctx.globalAlpha = Math.min(1, hc ? b * 1.35 + 0.05 : b);
-        ctx.drawImage(this.wallSprite(color), sx(tx) - pad, sy(ty) - pad, size, size);
+        const ck = ((L.mossy[t] ? 7 : L.mat[t]) * 32 + mem.kind[kb]) * 2 + (hc ? 1 : 0);
+        let color = this.colorCache[ck];
+        if (!color) {
+          color = wallColor(L.mossy[t] ? MOSS_WALL : MAT_COLOR[L.mat[t] as Mat], mem.kind[kb], hc);
+          this.colorCache[ck] = color;
+        }
+        const a = Math.min(1, hc ? b * 1.35 + 0.05 : b);
+        ctx.globalAlpha = a;
+        if (a < 0.12) {
+          // Faint memory: the glow is invisible at this alpha, so skip the big blurred sprite.
+          ctx.fillStyle = color;
+          ctx.fillRect(sx(tx) + s * 0.125, sy(ty) + s * 0.125, s * 0.75, s * 0.75);
+        } else {
+          ctx.drawImage(this.wallSprite(color), sx(tx) - pad, sy(ty) - pad, size, size);
+        }
       }
     }
     ctx.globalAlpha = 1;
@@ -274,8 +292,9 @@ export class Renderer {
       ctx.fillStyle = EXIT;
       ctx.font = `700 ${Math.max(8, s * 0.32)}px "Martian Mono", ui-monospace, monospace`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('EXIT', sx(ex) + s / 2, sy(ey) - 2);
+      const above = sy(ey) > s * 0.6 + 4;
+      ctx.textBaseline = above ? 'bottom' : 'top';
+      ctx.fillText('EXIT', sx(ex) + s / 2, above ? sy(ey) - 2 : sy(ey) + s + 2);
     }
 
     // ---- Entities ----

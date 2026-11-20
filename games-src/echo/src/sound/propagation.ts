@@ -77,10 +77,12 @@ const heap = new MinHeap();
  * Compute the distance field from `source` out to `limit` tiles of path distance. `blocked` marks
  * extra tiles to treat as walls (e.g. pits, for walking paths instead of sound).
  */
-export function computeField(level: Level, source: number, limit: number, blocked?: Uint8Array): Field {
+export function computeField(
+  level: Level, source: number, limit: number, blocked?: Uint8Array, amplify = true,
+): Field {
   const { w, h, solid } = level;
   const n = w * h;
-  const amp = level.hasCrystal;
+  const amp = level.hasCrystal && amplify;
   const L = amp ? 2 : 1;
   const d = new Float64Array(n * L).fill(Infinity);
   heap.clear();
@@ -138,15 +140,16 @@ export class FieldCache {
 
   constructor(private readonly level: Level) {}
 
-  get(source: number, limit: number): Field {
-    const key = source + ':' + limit;
+  /** `amplify = false` gives plain walking distance (crystal only amplifies sound). */
+  get(source: number, limit: number, amplify = true): Field {
+    const key = source + ':' + limit + (amplify ? '' : ':w');
     let f = this.map.get(key);
     if (f) {
       this.hits++;
       return f;
     }
     this.misses++;
-    f = computeField(this.level, source, limit);
+    f = computeField(this.level, source, limit, undefined, amplify);
     if (this.map.size > 400) this.map.clear();
     this.map.set(key, f);
     return f;

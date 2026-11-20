@@ -173,8 +173,11 @@ export class Game {
     const level = this.level;
     const tile = tileAt(level, spec.x, spec.y);
     let hear = heardByThreats(spec.owner, spec.kind) ? spec.hear : 0;
-    if (hear > 0 && this.zone[tile]) hear = Math.min(hear, WATERFALL_MASK_HEAR);
-    const limit = Math.max(spec.radius, hear * this.diff.hearing) + RING_END_PAD;
+    // Inside a waterfall's roar a sound carries 2 tiles, whatever the difficulty (decision 4).
+    const masked = hear > 0 && this.zone[tile] === 1;
+    if (masked) hear = Math.min(hear, WATERFALL_MASK_HEAR);
+    const reach = masked ? hear : hear * this.diff.hearing;
+    const limit = Math.max(spec.radius, reach) + RING_END_PAD;
     const field = spec.owner === 'ambient' ? this.fields.get(tile, limit) : computeField(level, tile, limit);
     const pulse = createPulse(level, {
       id: this.pulseId++,
@@ -196,11 +199,11 @@ export class Game {
     if (spec.owner === 'player') this.stats.sounds++;
 
     if (hear > 0 && this.status === 'playing') {
-      const reach = hear * this.diff.hearing;
       for (const L of this.listeners) {
         const lt = tileAt(level, L.x, L.y);
         if (this.zone[lt]) continue; // the waterfall drowns everything out
-        if (field.dist[lt] <= reach && L.hear(pulse, this.t)) {
+        // During the final chase they're already after Mira: hearing her isn't a new alert.
+        if (field.dist[lt] <= reach && L.hear(pulse, this.t) && !this.chasing) {
           this.stats.alerts++;
           this.push({ type: 'alert', x: L.x, y: L.y });
         }
@@ -382,17 +385,18 @@ export class Game {
     }
 
     const onExit = pt === level.exit;
-    if (onExit && !p.onExit) this.enterExit();
+    const handHeld = !!p.holding && this.t >= p.graceUntil;
+    if (onExit && (!p.onExit || handHeld)) this.enterExit(!p.onExit);
     p.onExit = onExit;
 
     this.updateThreatSense();
   }
 
   /** Stepping onto the exit (DESIGN.md decision 7). */
-  private enterExit(): void {
+  private enterExit(entered: boolean): void {
     const p = this.player;
     this.exitKnown = true;
-    if (p.holding) {
+    if (p.holding && this.t >= p.graceUntil) {
       const T = p.holding;
       T.state = 'safe';
       p.holding = null;
@@ -402,6 +406,8 @@ export class Game {
         this.push({ type: 'message', text: 'Tourist safe. Go back for the others, or press E on the exit to leave.' });
         return;
       }
+    } else if (!entered) {
+      return;
     } else if (this.stats.rescued < this.stats.total) {
       const left = this.stats.total - this.stats.rescued;
       this.push({ type: 'message', text: `${left} tourist${left === 1 ? ' is' : 's are'} still down here. Press E to leave without them.` });

@@ -153,7 +153,8 @@ Judgment calls the brief didn't settle, each chosen to serve the pillars.
 3. **Moss is a floor.** `M` is a silent moss floor. Rock walls touching moss are "mossy": they echo
    at half brightness, in moss green. Muffled walls are harder to see, which is the price of silence.
 4. **Waterfall tile.** `F` is a walkable water tile. Its zone is everything within **path**
-   distance 8 (so noise doesn't pass through walls either). Because the waterfall is constant
+   distance 8 (so noise doesn't pass through walls either). Any sound made inside the zone (Mira's,
+   a panicking tourist's, a cart's) carries at most 2 tiles to a Listener, on every difficulty. Because the waterfall is constant
    sound, walls inside its zone glow faintly at all times: sound is sight.
 5. **Who Listeners hear.** Player sounds (steps, clicks, claps, cane, stones), pushed minecarts,
    panicking tourists and the swarm's alarm. They do **not** react to ambient sounds, their own

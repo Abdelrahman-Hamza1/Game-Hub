@@ -60,3 +60,38 @@ testable headlessly, and the bot playtests in `tests/levels.test.ts` rely on it.
 - Use `rng` from the game state for anything random in the simulation (deterministic tests).
 - `localStorage` access goes through `src/storage.ts` (wrapped in try/catch).
 - Respect `prefers-reduced-motion` and the settings (shake, high contrast, captions).
+
+## Deploying
+
+`npm run build` writes a fully static game to `../../games/echo/` (relative asset paths, `base: './'`),
+so it runs from any folder on any static host. The only network request at runtime is Google Fonts;
+every level is bundled into the JavaScript.
+
+**GitHub Pages (how Game Night ships):**
+1. `npm test && npm run build` in `games-src/echo/`.
+2. Commit both the source and `games/echo/` (Pages serves the branch as-is; there's no build step
+   on GitHub's side).
+3. Push to `main`. With Settings → Pages → "Deploy from a branch" → `main` / root, the game is live
+   at `https://<user>.github.io/<repo>/games/echo/`, inside the hub.
+4. The repo root has `.nojekyll`, which keeps Jekyll from touching anything.
+
+**Echo on its own (Netlify, Vercel, Cloudflare Pages, any static host):** build, then publish the
+contents of `games/echo/`. Build command `npm run build`, output directory `../../games/echo`
+relative to `games-src/echo/` (or copy the folder anywhere). The `../../shared/gamenight.js` script
+tag simply 404s outside the hub, and the game runs without the hub bar.
+
+**Share links** are `…/games/echo/#level=<code>`. They work on any host because the level travels
+in the URL.
+
+**Before shipping, check:** `npm test` (all levels pass the Ghost bot), no console errors on
+the title screen, level 1 and the editor, and one playthrough on a phone (touch controls, sound
+after the first tap).
+
+## Known issues
+
+- **Gamepad-only players:** browsers only allow audio to start after a click, tap or key press,
+  and gamepad buttons don't count. A gamepad player gets sound after their first click or key.
+- **Holding Shift through a pause:** held keys are cleared on resume/retry so nothing sticks. On
+  macOS (no modifier auto-repeat) that means pressing Shift again to keep sneaking.
+- **Bot coverage:** the playtest bot proves every level can be escaped silently. It never uses
+  stones, carts or claps, so it doesn't test that those tools work well in a level.

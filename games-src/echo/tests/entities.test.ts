@@ -223,3 +223,13 @@ describe('best results', () => {
     expect(m).toEqual({ time: 80, sounds: 12, alerts: 0, rescued: 2, total: 2, ranks: ['ghost', 'guide', 'survivor'] });
   });
 });
+
+describe('device wording', () => {
+  it('rewords keyboard hints for touch and gamepad', async () => {
+    const { wordFor } = await import('../src/ui/wording');
+    expect(wordFor('Hold Shift to sneak. Quiet steps carry only a tile.', 'touch')).toBe('Turn on Sneak. Quiet steps carry only a tile.');
+    expect(wordFor('Press E beside a minecart to push it.', 'gamepad')).toBe('Press Y beside a minecart to push it.');
+    expect(wordFor('stand on rubble and press E to pick one up.', 'touch')).toBe('stand on rubble and tap Hand to pick one up.');
+    expect(wordFor('Clap to see. Follow the wind.', 'keyboard')).toBe('Clap to see. Follow the wind.');
+  });
+});

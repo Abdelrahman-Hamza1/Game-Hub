@@ -7,7 +7,7 @@ import {
   SNEAK_STEP_EVERY, SNEAK_STEP_RADIUS, STEP_EVERY, STEP_RADIUS, STONE_MAX_CARRY, STONE_MIN_RANGE,
   STONE_RADIUS, STONE_RANGE, STONE_SPEED,
 } from '../game/constants';
-import { moveCircle, tileAt } from '../world/grid';
+import { isSolidXY, moveCircle, tileAt } from '../world/grid';
 import { STEP_MULT } from '../world/level';
 import type { Tourist } from './tourist';
 
@@ -183,7 +183,13 @@ export function updateStones(g: Game, dt: number): void {
     let ny = s.y + s.dy * step;
     let landed = false;
     const t = tileAt(level, nx, ny);
-    if (level.solid[t] || nx < 0 || ny < 0 || nx >= level.w || ny >= level.h) {
+    // Crossing diagonally between two wall corners counts as hitting the wall (no corner leaks).
+    const ox = Math.floor(s.x);
+    const oy = Math.floor(s.y);
+    const cx = Math.floor(nx);
+    const cy = Math.floor(ny);
+    const crack = cx !== ox && cy !== oy && (isSolidXY(level, cx, oy) || isSolidXY(level, ox, cy));
+    if (crack || level.solid[t] || nx < 0 || ny < 0 || nx >= level.w || ny >= level.h) {
       nx = s.x;
       ny = s.y;
       landed = true;
