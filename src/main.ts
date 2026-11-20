@@ -285,7 +285,7 @@ class App {
           this.net.broadcastSnap(this.snap)
           this.sendAcc = 0
         }
-        if (s.lobby.v !== this.lastLobbyV || t - this.lastLobbyBroadcast > 1000) {
+        if (s.lobby.v !== this.lastLobbyV || t - this.lastLobbyBroadcast > 3000) {
           this.net.broadcastLobby(s.lobby)
           this.lastLobbyBroadcast = t
         }
@@ -498,6 +498,7 @@ class App {
         <input id="f-room" placeholder="room code" value="${esc(joinCode)}" style="width:150px">
         <button class="btn dark" data-act="join">Join</button>
       </div>
+      ${matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches ? '<p class="note"><b>On a phone?</b> Touch controls are coming later. For now, play on a computer with a mouse and keyboard.</p>' : ''}
       <div class="links">
         <button class="btn small" data-act="modal-help">How to play</button>
         <button class="btn small" data-act="modal-log">Logbook</button>
@@ -526,7 +527,7 @@ class App {
       const tick = bestTick(r.id, this.me().name)
       return `<button class="route ${r.id === sel.id ? 'on' : ''}" data-route="${esc(r.id)}">
         <span class="g">${esc(this.grade(r.grade))}</span>
-        <span><span class="n">${esc(r.name)}</span><br><span class="m">${esc(ANGLE_LABEL[r.angle])} · ${Math.round(r.height)} m · ${r.bolts.length} bolts${r.fa ? ` · FA ${esc(r.fa.by)}` : ''}</span></span>
+        <span><span class="n">${esc(r.name)}</span><br><span class="m">${esc(ANGLE_LABEL[r.angle])} · ${Math.round(r.anchor[1])} m · ${r.bolts.length} bolts${r.fa ? ` · FA ${esc(r.fa.by)}` : ''}</span></span>
         ${tick ? `<span class="tick ${tick === 'tried' ? 'tried' : ''}">${tick}</span>` : '<span></span>'}
       </button>`
     }

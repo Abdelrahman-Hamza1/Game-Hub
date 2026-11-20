@@ -8,7 +8,12 @@ import type { Belayer, CallEvent, Climber, Draw, FallRecord, InputFrame, RopeSta
 import { emptyInput } from './types'
 
 export const SUBSTEPS = 8
-export const BELAYER_X = -1.1
+/** where the belayer stands: a step left of the start holds */
+export function belayerHome(route: Route): number {
+  const starts = route.holds.filter((h) => h.role === 'start')
+  const x = starts.length ? Math.min(...starts.map((h) => h.x)) : route.width / 2
+  return x - 1.0
+}
 
 export interface GameEvent {
   id: number
@@ -52,6 +57,8 @@ export interface World {
   Tharness: number
   slack: number
   lowerRequested: boolean
+  /** the leader sat back on the rope to be lowered; hands stay off */
+  letGo: boolean
 }
 
 interface BotState {
@@ -74,7 +81,7 @@ export function createWorld(route: Route, opt: WorldOptions): World {
   const draws: Draw[] = route.bolts.map(([x, y]) => ({ x, y: y - 0.18, clipped: false, backclip: false, anchor: false }))
   draws.push({ x: route.anchor[0], y: route.anchor[1] - 0.12, clipped: false, backclip: false, anchor: true })
   const belayer: Belayer = {
-    x: BELAYER_X + Math.min(route.holds[0].x, 1.6) * 0.3,
+    x: belayerHome(route),
     y: 0.95,
     vx: 0,
     vy: 0,
@@ -84,6 +91,7 @@ export function createWorld(route: Route, opt: WorldOptions): World {
     soft: false,
     alert: 0,
     lockT: 0,
+    loadT: 0,
   }
   const w: World = {
     t: 0,
@@ -112,6 +120,7 @@ export function createWorld(route: Route, opt: WorldOptions): World {
     Tharness: 0,
     slack: 1,
     lowerRequested: false,
+    letGo: false,
   }
   w.rope = createRope(devicePos(belayer), [climber.pelvis.x, climber.pelvis.y], 1.0)
   return w
@@ -141,13 +150,21 @@ function addCall(w: World, id: number): void {
   w.calls.push({ id, role: call.role, t: w.t })
   if (w.calls.length > 12) w.calls.shift()
   if (id === 6) w.belayer.alert = 1.6 // Falling! widens the catch window
-  if (id === 8) w.lowerRequested = true
+  if (id === 8) requestLower(w)
+  if (id === 5 && w.topped) w.letGo = true
   if (w.bot) {
     if (id === 4 || id === 3) w.bot.slackUntil = w.t + 2.5
     if (id === 5) w.bot.takeUntil = w.t + 999
     if (id === 8) w.bot.takeUntil = 0
     if (id === 2) w.bot.takeUntil = 0
   }
+}
+
+/** The leader asks to come down: let go and sit back on the rope. */
+export function requestLower(w: World): void {
+  w.lowerRequested = true
+  w.letGo = true
+  if (w.bot) w.bot.takeUntil = 0
 }
 
 /** Seconds of rope slip to refund when a remote belayer's catch arrives late. */
@@ -167,9 +184,11 @@ export function stepWorld(w: World, dt: number, leaderIn: InputFrame, belayIn: I
   w.t += dt
 
   // calls
-  if (leaderIn.seq.call !== w.lastSeq.leader.call) addCall(w, leaderIn.callId)
+  // leader calls come from the leader, belayer calls from the belayer
+  const roleOf = (id: number) => CALL_BY_ID.get(id)?.role
+  if (leaderIn.seq.call !== w.lastSeq.leader.call && roleOf(leaderIn.callId) === 'leader') addCall(w, leaderIn.callId)
   const bIn = belayIn ?? botInput(w)
-  if (belayIn && belayIn.seq.call !== w.lastSeq.belayer.call) addCall(w, belayIn.callId)
+  if (belayIn && belayIn.seq.call !== w.lastSeq.belayer.call && roleOf(belayIn.callId) === 'belayer') addCall(w, belayIn.callId)
 
   // belayer controls
   const catchPress = bIn.seq.catch !== w.lastSeq.belayer.catch
@@ -188,18 +207,27 @@ export function stepWorld(w: World, dt: number, leaderIn: InputFrame, belayIn: I
     }
     if (catchPress && bIn.catchAge) refundSlip(w, bIn.catchAge)
   }
-  if (b.mode === 'lock') b.lockT += dt
+  if (b.mode === 'lock') {
+    b.lockT += dt
+    if (w.rope.T[0] > 300) b.loadT += dt
+  } else b.loadT = 0
   b.alert = Math.max(0, b.alert - dt)
 
   // climber controls
   const falling = !!w.fall
+  let lin = leaderIn
+  if (w.letGo) {
+    for (const hand of c.hands) if (hand.state !== 0) hand.state = 0
+    for (const foot of c.feet) if (foot.hold !== -2) foot.state = 0
+    lin = { ...leaderIn, hands: [{ ...leaderIn.hands[0], down: false }, { ...leaderIn.hands[1], down: false }] }
+  }
   controlClimber(
     c,
-    leaderIn,
+    lin,
     {
       route: w.route,
       prev: w.lastSeq.leader,
-      autoFeet: w.autoFeet,
+      autoFeet: w.autoFeet && !w.letGo,
       Tharness: w.Tharness,
       falling,
       ev: { emit: (t, x) => emit(w, t, x) },
@@ -210,8 +238,12 @@ export function stepWorld(w: World, dt: number, leaderIn: InputFrame, belayIn: I
 
   // physics
   const h = dt / SUBSTEPS
+  // a soft catch lets rope slip a little while the rope comes tight
+  const softSlip = b.mode === 'lock' && b.soft && b.loadT < DEVICE.softTime
   const hold =
-    b.mode === 'lock' || b.mode === 'take'
+    softSlip
+      ? DEVICE.soft
+      : b.mode === 'lock' || b.mode === 'take'
       ? DEVICE.locked
       : b.mode === 'feed'
         ? DEVICE.feed
@@ -280,7 +312,7 @@ function substepBelayer(w: World, h: number, F: [number, number]): void {
     b.y = 3.2
     b.vy = Math.min(0, b.vy)
   }
-  const home = BELAYER_X
+  const home = belayerHome(w.route)
   b.x = Math.max(home - 1.0, Math.min(home + 1.6, b.x))
   if (b.grounded) b.vx *= 0.9
 }
@@ -381,7 +413,7 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
   const pf = pointFn(w)
   w.highPoint = Math.max(w.highPoint, c.pelvis.y)
   if (c.pelvis.y > 2.0) w.leftGround = true
-  if (!w.fall && g === 0 && !ground && c.pelvis.y > 1.1 && !w.topped) {
+  if (!w.fall && g === 0 && !ground && c.pelvis.y > 1.1 && !w.topped && !w.letGo) {
     const n = w.rope.path.length
     const last = w.rope.path[n - 2]
     const C = last >= 0 ? w.draws[last].y : 0
@@ -444,6 +476,7 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
     }
   }
   // resting on the rope counts as weighting it
+  if (w.letGo && !w.topped) w.weighted = true
   if (!w.topped && g === 0 && !ground && w.Tharness > 0.4 * c.mass * G) {
     w.weightT += dt
     if (w.weightT > 0.3) w.weighted = true
@@ -471,7 +504,7 @@ export function endAttempt(w: World, reason: AttemptEnd['reason']): void {
     reason,
     sent: w.sent && reason !== 'ground',
     topped: w.topped,
-    highPoint: Math.max(0, w.highPoint - 0.9),
+    highPoint: w.topped ? w.route.anchor[1] : Math.max(0, w.highPoint),
     falls: w.falls.length,
   }
   emit(w, 'end')

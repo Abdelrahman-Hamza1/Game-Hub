@@ -74,3 +74,17 @@ describe('scripted climbing', () => {
     })
   }
 })
+
+describe('top out and lower', () => {
+  it('a clean top, a Take! call and the bot lowers to a send', () => {
+    const w = createWorld(CRAG[0], { leaderMass: 70, belayerMass: 70, tired: 0, autoFeet: true, bot: true })
+    scriptedClimb(w, 150)
+    expect(w.topped).toBe(true)
+    const inp = emptyInput()
+    inp.seq.call = 1
+    inp.callId = 5
+    for (let i = 0; i < 60 * 40 && !w.end; i++) stepWorld(w, 1 / 60, inp, null)
+    expect(w.end?.reason).toBe('lowered')
+    expect(w.end?.sent).toBe(w.falls.length === 0)
+  })
+})

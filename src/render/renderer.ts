@@ -5,7 +5,7 @@
 import { ANGLE_LABEL, BODY, CALL_BY_ID, YDS } from '../sim/constants'
 import type { Hold, Route } from '../sim/types'
 import type { Snap } from '../sim/world'
-import { BELAYER_X } from '../sim/world'
+import { belayerHome } from '../sim/world'
 import type { Settings } from '../game/storage'
 import { grassTexture, rockTexture } from './textures'
 
@@ -98,7 +98,7 @@ export class Renderer {
 
   /** Camera follows the leader and keeps the ground in view when low. */
   follow(route: Route, chestY: number, dt: number, snapTo = false): void {
-    const tx = route.width / 2 - 0.9
+    const tx = route.width / 2 - 0.5
     const half = this.H / 2 / this.scale
     const ty = Math.max(half - 0.9, Math.min(chestY + 0.6, route.height + 1 - half))
     const k = snapTo ? 1 : Math.min(1, dt * 4)
@@ -454,7 +454,7 @@ export class Renderer {
     c.setLineDash([])
     // brake strand down to the rope bag
     const dv = pts[0]
-    const bagX = BELAYER_X - 0.55
+    const bagX = belayerHome(v.route) - 0.6
     c.beginPath()
     c.moveTo(this.sx(dv[0]), this.sy(dv[1]))
     c.quadraticCurveTo(this.sx(dv[0] - 0.1), this.sy(0.2), this.sx(bagX + 0.15), this.sy(0.12))
@@ -627,7 +627,7 @@ export class Renderer {
 
   private drawSpectators(v: RenderView): void {
     v.spectators.forEach((p, i) => {
-      const x = BELAYER_X - 1.6 - i * 0.9
+      const x = belayerHome(v.route) - 1.5 - i * 0.9
       this.drawPerson([x, 1.45], [x, 0.95], [[x - 0.25, 1.0], [x + 0.25, 1.05]], [[x - 0.15, 0], [x + 0.15, 0]], p.color, [false, false], v.now)
       this.nameTag(x, 2.0, p.name, p.color)
     })
@@ -728,8 +728,8 @@ export class Renderer {
     c.fillStyle = '#FFB27A'
     c.fillText(`${grade} · ${ANGLE_LABEL[route.angle]}`, 26, 60)
     c.fillStyle = '#C9CCC7'
-    const hp = Math.max(0, snap.high - 0.9)
-    c.fillText(`high ${hp.toFixed(1)} / ${route.height.toFixed(0)} m · falls ${snap.falls}`, 26, 77)
+    const hp = snap.topped ? route.anchor[1] : Math.max(0, snap.high)
+    c.fillText(`high ${hp.toFixed(1)} / ${route.anchor[1].toFixed(0)} m · falls ${snap.falls}`, 26, 77)
     if (snap.weighted && !snap.topped) {
       c.fillStyle = '#FF8A95'
       c.fillText('not a send', 186, 60)
@@ -843,7 +843,7 @@ export class Renderer {
     const c = this.c
     const sn = v.snap
     const f = sn.fall ?? sn.lastFall
-    const x = this.W - 300, y = 14
+    const x = this.W - 300, y = 56
     this.panel(x, y, 286, 206)
     c.font = `600 11px ${MONO}`
     c.fillStyle = '#C9CCC7'

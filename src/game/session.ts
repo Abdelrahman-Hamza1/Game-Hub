@@ -5,7 +5,7 @@
 import { CRAG } from '../sim/routes'
 import type { InputFrame, Route } from '../sim/types'
 import { emptyInput } from '../sim/types'
-import { createWorld, endAttempt, snapshot, stepWorld, type Snap, type World } from '../sim/world'
+import { createWorld, endAttempt, requestLower, snapshot, stepWorld, type Snap, type World } from '../sim/world'
 
 export type Mode = 'solo' | 'local' | 'online'
 export type Phase = 'crag' | 'climb' | 'summary'
@@ -175,7 +175,7 @@ export class Session {
   giveUp(): void {
     if (!this.world) return
     // lowering off is a normal end; the attempt just doesn't count as a send
-    this.world.lowerRequested = true
+    requestLower(this.world)
     if (this.world.climber.pelvis.y < 1.3) endAttempt(this.world, 'gaveup')
   }
 

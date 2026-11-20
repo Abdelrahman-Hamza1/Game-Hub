@@ -23,9 +23,9 @@ export const BODY = {
 /** Rope: a dynamic single rope, roughly 9.5 mm */
 export const ROPE = {
   /** axial stiffness EA (N) */
-  EA: 20000,
+  EA: 26000,
   /** damping as a fraction of EA per unit strain rate (s) */
-  damping: 0.05,
+  damping: 0.012,
   length: 60,
   /** carabiner friction coefficient for the capstan ratio exp(mu * theta) */
   mu: 0.17,
@@ -36,8 +36,13 @@ export const ROPE = {
 
 /** Belay device hold force by mode (N) */
 export const DEVICE = {
-  idle: 1300,
-  idleAlert: 2600,
+  /** a relaxed brake hand: holds a hanging climber, lets a real fall run */
+  idle: 600,
+  /** after a "Falling!" call the belayer is ready */
+  idleAlert: 1500,
+  /** a soft catch lets rope slip at this force for a moment */
+  soft: 1100,
+  softTime: 0.45,
   feed: 700,
   locked: 1e9,
   feedRate: 1.4,

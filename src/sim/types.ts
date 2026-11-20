@@ -112,6 +112,8 @@ export interface Belayer {
   alert: number
   /** seconds since lock started */
   lockT: number
+  /** seconds the rope has been loaded while locked (for the soft catch) */
+  loadT: number
 }
 
 export interface FallRecord {

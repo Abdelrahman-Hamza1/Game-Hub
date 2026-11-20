@@ -3,7 +3,7 @@ import { CRAG, generateRoute } from './routes'
 import { clipDraw, elastic, stepRope, createRope, DEVICE, HARNESS } from './rope'
 import { createWorld, pointFn, stepWorld } from './world'
 import { emptyInput } from './types'
-import { BODY } from './constants'
+import { BODY, ROPE } from './constants'
 
 function fallSetup(above: number, slack: number, catchSoft = true) {
   const route = CRAG[3]
@@ -46,7 +46,7 @@ function fallSetup(above: number, slack: number, catchSoft = true) {
 describe('rope', () => {
   it('has no tension when slack and EA*strain when stretched', () => {
     expect(elastic(10, 9)).toBe(0)
-    expect(elastic(10, 11)).toBeCloseTo(2000, 0)
+    expect(elastic(10, 11)).toBeCloseTo(ROPE.EA / 10, 0)
   })
 
   it('friction at a draw holds more on one side than the other', () => {
