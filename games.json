@@ -1,13 +1,42 @@
 [
   {
+    "id": "echo",
+    "title": "Echo",
+    "blurb": "A blind cave guide finds her way by sound. So do the things hunting her.",
+    "players": [
+      1,
+      1
+    ],
+    "modes": [
+      "solo"
+    ],
+    "color": "slate",
+    "pattern": "rings",
+    "tags": [
+      "stealth",
+      "puzzle",
+      "sound"
+    ],
+    "added": "2026-11-20",
+    "howTo": "Sound is how you see: footsteps, claps (Space), tongue clicks (F) and thrown stones (click) light up the cave.\nSound is how you're found: Listeners hunt anything they hear. Hold Shift to sneak.\nFollow the exit's wind. E takes a tourist's hand. Esc pauses, R retries."
+  },
+  {
     "id": "_template",
     "title": "Tap Test",
     "blurb": "The starter template. Tap fast alone, or tap together in a room to check connections.",
-    "players": [1, 8],
-    "modes": ["solo", "online"],
+    "players": [
+      1,
+      8
+    ],
+    "modes": [
+      "solo",
+      "online"
+    ],
     "color": "sky",
     "pattern": "dots",
-    "tags": ["test"],
+    "tags": [
+      "test"
+    ],
     "added": "2026-11-20",
     "howTo": "Solo: tap as many times as you can in 10 seconds.\nIn a room: everyone's taps show up live. The host can reset or finish the round.",
     "dev": true
