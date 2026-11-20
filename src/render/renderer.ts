@@ -794,6 +794,7 @@ export class Renderer {
     else if (lastCall && snap.t - lastCall.t < 2.5 && lastCall.id === 5) prompt = 'Take! Pull in ↑ then hold Enter'
     else if (lastCall && snap.t - lastCall.t < 2.5 && lastCall.id === 4) prompt = 'Slack! Feed ↓'
     else if (snap.topped || (lastCall && lastCall.id === 8)) prompt = 'Lower: hold ↓ to pay out'
+    else if (snap.hanging) prompt = 'Resting on the rope: hold them'
     else if (snap.slack < 0.15 && snap.high > 2) prompt = 'Tight! Feed ↓ or you short-rope'
     if (prompt && (v.localBelayer || !v.belayer)) {
       c.fillStyle = snap.fall ? '#FF8A95' : '#FFB27A'
@@ -849,16 +850,17 @@ export class Renderer {
     c.fillStyle = '#C9CCC7'
     c.fillText('FALL READOUT (G to hide)', x + 12, y + 20)
     if (f) {
-      const L = f.C + f.h + 1
-      const free = 2 * f.h + f.s
-      const FF = Math.min(2, free / Math.max(0.5, L))
+      const h = Math.max(0, f.h)
+      const L = f.C + h + 1
+      const free = 2 * h + f.s
+      const FF = Math.max(0, Math.min(2, free / Math.max(0.5, L)))
       const stretch = L * (0.04 + 0.06 * FF)
       const travel = f.soft ? 0.6 : 0.1
       const predDrop = free + stretch + travel
       const predF = (2.2 + 4.2 * Math.sqrt(FF)) * (f.soft ? 0.75 : 1)
       const lines = [
         `last clip C   ${f.C.toFixed(1)} m`,
-        `above it h    ${f.h.toFixed(1)} m`,
+        `above it h    ${h.toFixed(1)} m`,
         `slack s       ${f.s.toFixed(1)} m`,
         `fall factor   ${FF.toFixed(2)}`,
         `model drop    ${predDrop.toFixed(1)} m`,

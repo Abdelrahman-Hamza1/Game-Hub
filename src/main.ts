@@ -384,13 +384,11 @@ class App {
       if (e.id <= this.seenEvent) continue
       this.seenEvent = e.id
       sfx(e.type)
-      const now = performance.now() / 1000
-      if (e.type === 'catch' && e.text) this.toasts.push({ text: e.text, t: now, kind: e.text.startsWith('Brutal') ? 'bad' : 'info' })
-      else if (e.type === 'top' && e.text) this.toasts.push({ text: e.text, t: now, kind: 'good' })
-      else if ((e.type === 'pop' || e.type === 'clipfail' || e.type === 'ground' || e.type === 'unclip') && e.text) this.toasts.push({ text: e.text, t: now, kind: 'bad' })
-      else if (e.type === 'clip' && e.text) this.toasts.push({ text: e.text, t: now, kind: e.text.startsWith('Back') ? 'bad' : 'good' })
-      else if (e.type === 'hint' && e.text && this.isLocalLeader()) this.toasts.push({ text: e.text, t: now, kind: 'info' })
-      if (this.toasts.length > 3) this.toasts.shift()
+      if (e.type === 'catch' && e.text) this.toast(e.text, e.text.startsWith('Brutal') ? 'bad' : 'info')
+      else if (e.type === 'top' && e.text) this.toast(e.text, 'good')
+      else if ((e.type === 'pop' || e.type === 'clipfail' || e.type === 'ground' || e.type === 'unclip') && e.text) this.toast(e.text, 'bad')
+      else if (e.type === 'clip' && e.text) this.toast(e.text, e.text.startsWith('Back') ? 'bad' : 'good')
+      else if (e.type === 'hint' && e.text && this.isLocalLeader()) this.toast(e.text, 'info')
     }
     for (const c of snap.calls) {
       const key = `${c.t}-${c.id}`
@@ -401,7 +399,10 @@ class App {
   }
 
   toast(text: string, kind: Toast['kind']): void {
-    this.toasts.push({ text, t: performance.now() / 1000, kind })
+    const now = performance.now() / 1000
+    if (this.toasts.some((x) => x.text === text && now - x.t < 1.5)) return
+    this.toasts.push({ text, t: now, kind })
+    if (this.toasts.length > 3) this.toasts.shift()
   }
 
   onLobbyChange(): void {

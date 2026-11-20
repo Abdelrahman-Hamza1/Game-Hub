@@ -59,6 +59,8 @@ export interface World {
   lowerRequested: boolean
   /** the leader sat back on the rope to be lowered; hands stay off */
   letGo: boolean
+  /** hanging on the rope after a fall, until a hand grips again */
+  hanging: boolean
 }
 
 interface BotState {
@@ -121,6 +123,7 @@ export function createWorld(route: Route, opt: WorldOptions): World {
     slack: 1,
     lowerRequested: false,
     letGo: false,
+    hanging: false,
   }
   w.rope = createRope(devicePos(belayer), [climber.pelvis.x, climber.pelvis.y], 1.0)
   return w
@@ -413,7 +416,8 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
   const pf = pointFn(w)
   w.highPoint = Math.max(w.highPoint, c.pelvis.y)
   if (c.pelvis.y > 2.0) w.leftGround = true
-  if (!w.fall && g === 0 && !ground && c.pelvis.y > 1.1 && !w.topped && !w.letGo) {
+  if (g > 0 || ground) w.hanging = false
+  if (!w.fall && g === 0 && !ground && c.pelvis.y > 1.1 && !w.topped && !w.letGo && !w.hanging) {
     const n = w.rope.path.length
     const last = w.rope.path[n - 2]
     const C = last >= 0 ? w.draws[last].y : 0
@@ -471,6 +475,7 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
       c.pump[1] = Math.min(100, c.pump[1] + penalty)
       w.falls.push(f)
       w.fall = null
+      w.hanging = g === 0
       const label = f.result === 'brutal' ? 'Brutal catch' : f.result === 'firm' ? 'Firm catch' : 'Gentle catch'
       emit(w, 'catch', `${label} · ${kN.toFixed(1)} kN · dropped ${(f.startY - f.lowY).toFixed(1)} m`)
     }
@@ -543,6 +548,11 @@ function botInput(w: World): InputFrame {
     } else if (w.slack > 1.5) inp.take = true
     return inp
   }
+  if (hanging) {
+    // resting on the rope: hold them there until they climb on or ask to come down
+    inp.catchHeld = true
+    return inp
+  }
   if (w.t < bot.takeUntil) {
     if (w.Tharness < 0.5 * c.mass * G && hanging) inp.take = true
     else if (!hanging && w.slack > 0.4) inp.take = true
@@ -587,6 +597,7 @@ export interface Snap {
   topped: boolean
   sent: boolean
   weighted: boolean
+  hanging: boolean
   high: number
   slack: number
   T: number
@@ -636,6 +647,7 @@ export function snapshot(w: World): Snap {
     topped: w.topped,
     sent: w.sent,
     weighted: w.weighted,
+    hanging: w.hanging,
     high: r2(w.highPoint),
     slack: r2(w.slack),
     T: Math.round(w.Tharness),
