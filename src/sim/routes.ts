@@ -95,6 +95,9 @@ export function generateRoute(spec: RouteSpec): Route {
     let dy = dyLo + r() * (dyHi - dyLo)
     const cx = center(prev.y + dy)
     let x = cx + side * (0.12 + r() * 0.26)
+    // a wandering line still has to stay within a reach sideways
+    const maxDx = 0.3 + 0.25 * t
+    if (Math.abs(x - prev.x) > maxDx) x = prev.x + Math.sign(x - prev.x) * maxDx
     const dx = Math.abs(x - prev.x)
     // the new hold must be reachable from a lock-off on the previous hold
     const lim = Math.sqrt(Math.max(0.05, maxReach * maxReach - dx * dx)) - 0.2

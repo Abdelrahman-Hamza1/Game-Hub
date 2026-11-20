@@ -286,11 +286,14 @@ export function poseTarget(c: Climber): { x: number; chestY: number } | null {
   }
   // lock off: when one hand reaches up, pull the chest up toward the other hand
   const reaching = c.hands.find((h) => h.state === 2)
+  let straining = false
   if (reaching && hs.length === 1 && reaching.y > c.chest.y + 0.15) {
     chestY = Math.max(chestY, hs[0].y - 0.2)
+    // at full stretch the climber pulls through even if the feet cut loose
+    straining = Math.hypot(reaching.x - c.chest.x, reaching.y - c.chest.y) > (c.hipsIn ? BODY.reachHipsIn : BODY.reach) - 0.03
   }
   // legs can only push so far; a trailing lower foot just cuts loose
-  if (fs.length) {
+  if (fs.length && !straining) {
     const f = fs.reduce((a, b) => (b.y > a.y ? b : a))
     const dx = x - f.x
     const cap = f.y + Math.sqrt(Math.max(0, BODY.leg ** 2 - dx * dx)) - 0.03 + BODY.torso
