@@ -104,7 +104,7 @@ export class Game {
   checkpoint: Checkpoint | null = null;
   /** Debug: field of the last pulse. */
   lastField: Field | null = null;
-  /** Path distance to the nearest Listener (heartbeat), Infinity if none within 13. */
+  /** Path distance to the nearest Listener (heartbeat), Infinity if none within 20. */
   nearestThreat = Infinity;
   /** Passable tiles within 6 path tiles of the player (reverb room size). */
   roomSize = 0;
@@ -400,7 +400,7 @@ export class Game {
     const pt = tileAt(level, this.player.x, this.player.y);
     if (pt !== this.playerFieldTile) {
       this.playerFieldTile = pt;
-      this.playerField = computeField(level, pt, 13);
+      this.playerField = computeField(level, pt, 20);
       let room = 0;
       const d = this.playerField.dist;
       for (let i = 0; i < d.length; i++) if (d[i] <= 6) room++;
@@ -415,7 +415,7 @@ export class Game {
     this.nearestThreat = nearest;
   }
 
-  /** Path distance from the player to a tile (Infinity beyond 13 tiles). */
+  /** Path distance from the player to a tile (Infinity beyond 20 tiles). Used for audio falloff. */
   pathFromPlayer(tile: number): number {
     return this.playerField ? this.playerField.dist[tile] : Infinity;
   }

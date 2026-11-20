@@ -13,6 +13,9 @@ import { loadSettings, type Settings } from './storage';
 import { Hud } from './ui/hud';
 import { TouchControls } from './ui/touch';
 import { el, toast } from './ui/dom';
+import { AudioEngine } from './audio/audio';
+import { Captions } from './ui/captions';
+import { hubSoundOn, onHubSoundChange } from './hub';
 import type { Level } from './world/level';
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -25,6 +28,8 @@ class App {
   readonly hud: Hud;
   readonly touch: TouchControls;
   readonly loop: Loop;
+  readonly audio = new AudioEngine();
+  readonly captions: Captions;
   settings: Settings = loadSettings();
   game: Game | null = null;
   level: Level | null = null;
@@ -44,9 +49,23 @@ class App {
     this.touch = new TouchControls(document.getElementById('touch')!, this.input);
     this.input.onDeviceChange = (d) => this.touch.show(d === 'touch' && this.isPlaying());
     if (matchMedia('(pointer: coarse)').matches) this.input.lastDevice = 'touch';
+    this.captions = new Captions(document.getElementById('captions')!, this.renderer);
+    this.captions.enabled = this.settings.captions;
     this.loop = new Loop((dt) => this.update(dt), (dt) => this.render(dt));
+    // Audio can only start inside a user gesture.
+    const unlock = () => {
+      this.audio.unlock();
+      this.applyVolume();
+    };
+    window.addEventListener('pointerdown', unlock, { capture: true });
+    window.addEventListener('keydown', unlock, { capture: true });
+    onHubSoundChange(() => this.applyVolume());
     new ResizeObserver(() => this.renderer.resize()).observe(this.canvas);
     this.renderer.resize();
+  }
+
+  applyVolume(): void {
+    this.audio.setVolume(this.settings.volume, this.settings.muted || !hubSoundOn());
   }
 
   isPlaying(): boolean {
@@ -81,6 +100,7 @@ class App {
     this.failShown = false;
     this.frameEvents = [];
     this.screen.replaceChildren();
+    this.captions.clear();
     this.renderer.snapTo(this.game);
     this.input.resetHeld();
     this.input.enabled = true;
@@ -130,6 +150,10 @@ class App {
     for (const e of events) this.onEvent(e);
     this.renderer.render(g, this.paused ? 0 : dt, opts);
     if (!g.attract) this.hud.update(g);
+    const heard = this.audio.handle(g, events);
+    if (!g.attract) this.captions.show(g, heard);
+    this.captions.tick();
+    if (!this.paused) this.audio.update(g);
   }
 
   private onEvent(e: GameEvent): void {
@@ -147,8 +171,10 @@ class App {
     this.paused = !this.paused;
     this.input.enabled = !this.paused;
     this.input.resetHeld();
-    if (this.paused) this.showPause();
-    else this.screen.replaceChildren();
+    if (this.paused) {
+      this.audio.stopWorld();
+      this.showPause();
+    } else this.screen.replaceChildren();
   }
 
   // ------------------------------------------------------------------ overlays (M1: minimal)
