@@ -774,6 +774,16 @@ export class Renderer {
     c.fillStyle = '#C9CCC7'
     c.fillText(`BELAY · ${v.belayer ? v.belayer.name : 'bot'}`, bx + 12, by + 20)
     const kN = snap.T / 1000
+    // "Watch me!" makes the tension meter stand out for the belayer
+    if (snap.calls.some((k) => k.id === 7 && snap.t - k.t < 4)) {
+      c.strokeStyle = ROPE
+      c.lineWidth = 3
+      c.beginPath()
+      c.roundRect(bx - 2, by - 2, 274, 98, 7)
+      c.stroke()
+      c.fillStyle = '#FFB27A'
+      c.fillText('WATCH ME', bx + 186, by + 20)
+    }
     c.fillStyle = '#fff'
     c.fillText('rope', bx + 12, by + 42)
     c.fillStyle = 'rgba(255,255,255,0.15)'
