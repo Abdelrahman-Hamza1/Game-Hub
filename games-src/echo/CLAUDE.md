@@ -48,7 +48,7 @@ testable headlessly, and the bot playtests in `tests/levels.test.ts` rely on it.
 2. Legend: `#` rock wall · `.` floor · `W` water · `G` gravel · `M` moss · `T` metal floor ·
    `X` metal wall · `K` crystal · `S` start · `E` exit · `D` drip · `F` waterfall · `R` rubble ·
    `C` Listener · `B` swarm · `Z` mimic · `P` tourist · `~` false floor (pit) · `=` rail ·
-   `H` minecart.
+   `H` minecart · `!` chase trigger (with `"chase": true` in the json).
 3. `npm test` validates every level (one `S`, one `E`, rectangular, exit and tourists reachable)
    and runs the bot, which must escape with **0 alerts** (Ghost rank).
 4. Or draw it in the editor (title → Editor), press Play to try it, then Export and paste the text

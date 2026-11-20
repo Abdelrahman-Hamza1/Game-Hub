@@ -167,7 +167,7 @@ export function wallDistance(level: Level, field: Field, k: number): number {
  * The next tile when walking downhill on a field from tile `at`: the passable neighbour (no corner
  * cutting) with the lowest distance, if it is lower than here. Returns −1 at the bottom.
  */
-export function downhill(level: Level, field: Field, at: number): number {
+export function downhill(level: Level, field: Field, at: number, blocked?: Uint8Array): number {
   const { w, h, solid } = level;
   const x = at % w;
   const y = (at / w) | 0;
@@ -179,8 +179,9 @@ export function downhill(level: Level, field: Field, at: number): number {
     const ny = y + dir.dy;
     if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
     const ni = ny * w + nx;
-    if (solid[ni]) continue;
+    if (solid[ni] || (blocked && blocked[ni])) continue;
     if (dir.diag && (solid[y * w + nx] || solid[ny * w + x])) continue;
+    if (dir.diag && blocked && (blocked[y * w + nx] || blocked[ny * w + x])) continue;
     const v = field.dist[ni];
     if (v < bestD - 1e-6) {
       bestD = v;

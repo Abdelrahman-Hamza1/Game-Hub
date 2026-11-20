@@ -247,6 +247,38 @@ export class Input {
     }
   }
 
+  private menuPrev: boolean[] = [];
+  private menuAxisHeld = false;
+
+  /** Menu navigation from a gamepad: D-pad / left stick to move focus, A to press, B to go back. */
+  menuNav(): ('up' | 'down' | 'left' | 'right' | 'ok' | 'back')[] {
+    const pad = this.pad();
+    if (!pad) return [];
+    const out: ('up' | 'down' | 'left' | 'right' | 'ok' | 'back')[] = [];
+    const edge = (i: number) => {
+      const down = !!pad.buttons[i]?.pressed;
+      const was = this.menuPrev[i] ?? false;
+      this.menuPrev[i] = down;
+      return down && !was;
+    };
+    if (edge(12)) out.push('up');
+    if (edge(13)) out.push('down');
+    if (edge(14)) out.push('left');
+    if (edge(15)) out.push('right');
+    if (edge(0)) out.push('ok');
+    if (edge(1)) out.push('back');
+    const ax = pad.axes[0] ?? 0;
+    const ay = pad.axes[1] ?? 0;
+    const strong = Math.abs(ax) > 0.6 || Math.abs(ay) > 0.6;
+    if (strong && !this.menuAxisHeld) {
+      if (Math.abs(ay) >= Math.abs(ax)) out.push(ay < 0 ? 'up' : 'down');
+      else out.push(ax < 0 ? 'left' : 'right');
+    }
+    this.menuAxisHeld = strong;
+    if (out.length) this.setDevice('gamepad');
+    return out;
+  }
+
   /** Right-stick aim, for drawing an aim line. */
   aim(): { x: number; y: number } | null {
     const pad = this.pad();

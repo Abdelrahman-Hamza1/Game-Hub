@@ -148,24 +148,29 @@ export function updatePlayer(g: Game, p: Player, a: Actions, dt: number): void {
   if (a.hand) handAction(g, p);
 }
 
-/** E / Y / Hand: pick up a stone on rubble, push a minecart, or take/let go of a hand. */
+/**
+ * E / Y / Hand, in priority order: let go of a held hand, take a hand within reach, leave through
+ * the exit (when tourists remain), pick up a stone on rubble, push a minecart.
+ */
 function handAction(g: Game, p: Player): void {
   const level = g.level;
   const here = tileAt(level, p.x, p.y);
-  if (level.rubble[here] && p.stones < p.stoneCap && !p.holding) {
-    p.stones++;
-    g.push({ type: 'pickup', stones: p.stones });
-    return;
-  }
-  if (g.tryPushCart(p)) return;
   if (p.holding) {
     g.releaseTourist(p.holding);
     return;
   }
   if (g.tryGrabTourist(p)) return;
-  if (level.rubble[here] && p.stones >= p.stoneCap) {
-    g.push({ type: 'message', text: `Your pockets are full (${p.stoneCap} stones).` });
+  if (g.tryLeave()) return;
+  if (level.rubble[here]) {
+    if (p.stones < p.stoneCap) {
+      p.stones++;
+      g.push({ type: 'pickup', stones: p.stones });
+    } else {
+      g.push({ type: 'message', text: `Your pockets are full (${p.stoneCap} stones).` });
+    }
+    return;
   }
+  g.tryPushCart(p);
 }
 
 /** Advance stones in flight; a stone stops at a wall or at its range and makes a sound. */

@@ -35,12 +35,23 @@ export class Listener {
   heardCount = 0;
   /** Where the sound it's hunting came from (debug overlay). */
   huntSource = -1;
+  /** Its post: patrols stay within 7 tiles of here (DESIGN.md decision 25). */
+  readonly home: number;
 
   constructor(readonly index: number, tile: number, w: number, now: number, growlOffset: number) {
     this.at = tile;
+    this.home = tile;
     this.x = (tile % w) + 0.5;
     this.y = ((tile / w) | 0) + 0.5;
     this.growlAt = now + growlOffset;
+  }
+
+  /** Final chase: hunt Mira's position directly. Not counted as an alert. */
+  chase(field: Field, now: number): void {
+    if (this.state !== 'hunt') this.stateSince = now;
+    this.state = 'hunt';
+    this.field = field;
+    this.huntSource = field.source;
   }
 
   /** A sound reached it. Returns true if this switched it into hunting (an alert). */
@@ -105,22 +116,34 @@ export function updateListener(g: Game, L: Listener, dt: number): void {
   }
 }
 
-/** Choose a random tile within 7 path tiles and the field leading to it. */
+/**
+ * Choose a random tile within 7 path tiles of where it stands that is also within 7 of its post,
+ * and the field leading there. A Listener that hunted far from its post heads back toward it.
+ */
 function pickPatrol(g: Game, L: Listener): void {
-  const around = g.fields.get(L.at, LISTENER_PATROL_RANGE);
+  const R = LISTENER_PATROL_RANGE;
+  const around = g.fields.get(L.at, R);
+  const home = g.fields.get(L.home, R);
   const candidates: number[] = [];
   for (let i = 0; i < around.dist.length; i++) {
     const d = around.dist[i];
-    if (d >= 1.5 && d <= LISTENER_PATROL_RANGE) candidates.push(i);
+    if (d >= 1.5 && d <= R && home.dist[i] <= R) candidates.push(i);
   }
   L.stateSince = g.t;
-  if (!candidates.length) {
+  if (candidates.length) {
+    L.patrolTarget = g.rng.pick(candidates);
+    L.field = g.fields.get(L.patrolTarget, R + 1);
+    return;
+  }
+  if (home.dist[L.at] <= R) {
+    // Boxed in at its post: stay put for this round.
     L.patrolTarget = L.at;
     L.field = around;
     return;
   }
-  L.patrolTarget = g.rng.pick(candidates);
-  L.field = g.fields.get(L.patrolTarget, LISTENER_PATROL_RANGE + 1);
+  // Far from its post (after a hunt): walk home.
+  L.patrolTarget = L.home;
+  L.field = g.fields.get(L.home, 200);
 }
 
 /** Walk downhill on L.field. Returns true when it has arrived (no lower neighbour). */

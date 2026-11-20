@@ -96,6 +96,9 @@ export class Game {
   events: GameEvent[] = [];
   stats: Stats;
   exitKnown = false;
+  /** Final chase running (level meta.chase). */
+  chasing = false;
+  private nextChase = 0;
   /** 1 for tiles inside a waterfall's noise zone. */
   readonly zone: Uint8Array;
   /** Boundary walls inside a waterfall zone (always faintly lit). */
@@ -245,7 +248,7 @@ export class Game {
       if (c.rolling) continue;
       if (Math.hypot(c.x - p.x, c.y - p.y) > CART_REACH) continue;
       if (pushCart(this, c, p.x, p.y)) return true;
-      this.push({ type: 'message', text: "The cart won't roll that way." });
+      this.push({ type: 'message', text: "The cart won't roll that way. Push from the other end." });
       return true;
     }
     return false;
@@ -361,6 +364,23 @@ export class Game {
         return;
       }
     }
+    // Final chase: starts on a '!' tile (or after 1.5 s if the level has none).
+    if (level.meta.chase && !this.chasing) {
+      const trigger = level.chaseTriggers.length ? level.chaseTriggers.includes(pt) : this.t >= 1.5;
+      if (trigger) {
+        this.chasing = true;
+        this.nextChase = this.t;
+        this.push({ type: 'message', text: 'It heard you. Run!' });
+        this.push({ type: 'shake', amount: 3 });
+        this.push({ type: 'alert', x: p.x, y: p.y });
+      }
+    }
+    if (this.chasing && this.t >= this.nextChase) {
+      this.nextChase = this.t + 0.5;
+      const field = computeField(level, pt, 400);
+      for (const L of this.listeners) L.chase(field, this.t);
+    }
+
     const onExit = pt === level.exit;
     if (onExit && !p.onExit) this.enterExit();
     p.onExit = onExit;
@@ -379,10 +399,27 @@ export class Game {
       this.stats.rescued++;
       this.push({ type: 'delivered', rescued: this.stats.rescued, total: this.stats.total });
       if (this.stats.rescued < this.stats.total) {
-        this.push({ type: 'message', text: 'Tourist safe. Step onto the exit again to leave, or go back for the others.' });
+        this.push({ type: 'message', text: 'Tourist safe. Go back for the others, or press E on the exit to leave.' });
         return;
       }
+    } else if (this.stats.rescued < this.stats.total) {
+      const left = this.stats.total - this.stats.rescued;
+      this.push({ type: 'message', text: `${left} tourist${left === 1 ? ' is' : 's are'} still down here. Press E to leave without them.` });
+      return;
     }
+    this.win();
+  }
+
+  /** E on the exit with tourists still in the cave: leave anyway. */
+  tryLeave(): boolean {
+    const p = this.player;
+    if (this.status !== 'playing' || p.holding) return false;
+    if (tileAt(this.level, p.x, p.y) !== this.level.exit) return false;
+    this.win();
+    return true;
+  }
+
+  private win(): void {
     this.status = 'won';
     this.endedAt = this.t;
     this.push({ type: 'won' });

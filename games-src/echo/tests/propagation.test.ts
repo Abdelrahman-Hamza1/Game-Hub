@@ -225,3 +225,23 @@ describe('downhill paths', () => {
     expect(g.stats.alerts).toBe(0);
   });
 });
+
+describe('final chase', () => {
+  it('a chase trigger makes Listeners hunt Mira without counting alerts', () => {
+    const L = lvl(
+      '##################',
+      '#S.!.............#',
+      '#................#',
+      '#........C......E#',
+      '##################',
+    );
+    L.meta.chase = true;
+    const g = game(L);
+    run(g, 0.5, () => ({}));
+    expect(g.chasing).toBe(false);
+    run(g, 1.6, () => ({ moveX: 1, sneak: true }));
+    expect(g.chasing).toBe(true);
+    expect(g.listeners[0].state).toBe('hunt');
+    expect(g.stats.alerts).toBe(0);
+  });
+});

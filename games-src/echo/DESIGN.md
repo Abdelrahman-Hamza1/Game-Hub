@@ -126,7 +126,7 @@ ASCII grid in `src/levels/<chapter>/<nn>.txt` (≤ 96 × 64) plus `<nn>.json`
 `{ "name", "stones", "hint", "parTime" }`. Legend: `#` rock wall, `.` rock floor, `W` water,
 `G` gravel, `M` moss, `T` metal floor, `X` metal wall, `K` crystal wall, `S` start, `E` exit,
 `D` drip, `F` waterfall, `R` rubble, `C` Listener, `B` swarm roost, `Z` mimic, `P` tourist,
-`~` false floor (pit), `=` rail, `H` minecart (on a rail).
+`~` false floor (pit), `=` rail, `H` minecart (on a rail), `!` chase trigger.
 
 1. **The Tour**: steps, clap, wind, stones, first Listener, first tourist.
 2. **Flooded Galleries**: water, waterfalls, the Swarm.
@@ -161,9 +161,11 @@ Judgment calls the brief didn't settle, each chosen to serve the pillars.
 6. **Hand grace.** Clapping or throwing lets go of the tourist's hand for 0.5 s and takes it again
    automatically (if they're still within reach), so they don't panic. An explicit release (E)
    starts the 2 s panic timer.
-7. **Delivering tourists.** Stepping onto the exit while holding a tourist brings them out. Stepping
-   onto the exit with a free hand ends the level. Bringing out the last tourist ends it too. This
-   lets a guide ferry several tourists one at a time.
+7. **Delivering tourists.** Stepping onto the exit while holding a tourist brings them out; bringing
+   out the last one ends the level. With tourists still in the cave, stepping onto the exit with a
+   free hand only asks: press E there to leave without them. A guide can ferry several tourists one
+   at a time without ending the level by accident. With no tourists (or all of them out), the exit
+   ends the level at once.
 8. **Guide rank** is only awarded on levels that have tourists, so it always means something.
 9. **Memory fade.** The brief's fade time is used as the exponential decay time constant
    (brightness × e^(−t/τ)). Hard-core uses τ = 0.08 s, so walls are visible only while the ring
@@ -198,3 +200,22 @@ Judgment calls the brief didn't settle, each chosen to serve the pillars.
     Google Fonts. No service worker: it would complicate updates on a static host for little gain.
 22. **Exit visibility.** The exit becomes known (and stays known) the first time any ring reaches
     it, including its own wind.
+23. **The final chase.** A level whose meta has `"chase": true` ends in a chase: when Mira steps on
+    a `!` tile (or after 1.5 s if the level has none), every Listener hunts her position directly,
+    re-targeting twice a second. They run at 3.1 tiles/s; Mira runs at 3.4, so a clean run escapes
+    and a hesitation doesn't. Chase hunting isn't counted as an alert (the Listeners didn't *hear*
+    a mistake), so the finale can still be finished as a Ghost.
+24. **Verifying "beatable as a Ghost".** `tests/bot.ts` plays every level headlessly: it sneaks along
+    the shortest walkable path (pits avoided), takes each tourist's hand, delivers them, and steps
+    away from any Listener closer than 3.2 tiles. It never claps, throws or pushes carts. A level
+    passes if the bot escapes with 0 alerts on at least one of 8 seeds. This proves every level can
+    be escaped silently; it doesn't prove a level is fun, which is still judged by playing.
+25. **Listeners keep a post.** The brief's patrol picks "a random tile within 7 tiles". Read
+    literally from the Listener's current position, Listeners drift across the whole cave within a
+    few minutes and a designer can't place a guard. A patrol target must be within 7 path tiles of
+    where the Listener stands **and** within 7 of the tile it started on. After a hunt drags it
+    away, it walks back to its post.
+26. **E priority.** Hand first (let go / take a hand), then leaving via the exit, then rubble, then
+    pushing a minecart, so a guide near a cart never shoves it by accident.
+27. **Carts don't block.** Mira and Listeners pass through minecarts; they're sound sources, not
+    obstacles.

@@ -46,7 +46,7 @@ export function playGhost(level: Level, seed: number, opts: BotOptions = {}): Bo
 
   while (g.status === 'playing' && g.t < maxTime) {
     const a = noActions();
-    a.sneak = true;
+    a.sneak = !g.chasing; // sneak, except when running from the final chase
     const p = g.player;
     const here = tileAt(level, p.x, p.y);
 
@@ -67,7 +67,7 @@ export function playGhost(level: Level, seed: number, opts: BotOptions = {}): Bo
       a.hand = true;
     } else {
       const f = walkField(goal);
-      let next = downhill(level, f, here);
+      let next = downhill(level, f, here, level.pit);
       if (next < 0) {
         next = goal;
       }
@@ -79,14 +79,21 @@ export function playGhost(level: Level, seed: number, opts: BotOptions = {}): Bo
       if (m > 0.02) { a.moveX = mx / m; a.moveY = my / m; }
     }
 
-    // Back away from a nearby Listener.
-    for (const L of g.listeners) {
+    // Back away from a nearby Listener (pointless in a chase: just run).
+    for (const L of g.chasing ? [] : g.listeners) {
       const dx = p.x - L.x;
       const dy = p.y - L.y;
       const d = Math.hypot(dx, dy);
       if (d < evade) {
-        a.moveX = dx / d;
-        a.moveY = dy / d;
+        // Step away, unless that would walk into a pit: then hold still (standing is silent).
+        const ahead = tileAt(level, p.x + (dx / d) * 0.6, p.y + (dy / d) * 0.6);
+        if (level.pit[ahead] || level.solid[ahead]) {
+          a.moveX = 0;
+          a.moveY = 0;
+        } else {
+          a.moveX = dx / d;
+          a.moveY = dy / d;
+        }
         a.hand = false;
       }
     }

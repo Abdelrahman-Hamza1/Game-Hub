@@ -59,6 +59,7 @@ export const LEGEND: Record<string, TileDef> = {
   '~': { solid: false, mat: Mat.Rock, label: 'False floor (pit)' },
   '=': { solid: false, mat: Mat.Metal, label: 'Rail' },
   H: { solid: false, mat: Mat.Metal, label: 'Minecart' },
+  '!': { solid: false, mat: Mat.Rock, label: 'Chase trigger' },
 };
 
 export interface LevelMeta {
@@ -66,6 +67,8 @@ export interface LevelMeta {
   stones: number;
   hint: string;
   parTime: number;
+  /** Final-chase level: every Listener hunts Mira relentlessly once the chase starts. */
+  chase?: boolean;
 }
 
 export interface Level extends GridLike {
@@ -90,6 +93,8 @@ export interface Level extends GridLike {
   mimics: number[];
   tourists: number[];
   carts: number[];
+  /** Chase trigger tiles ('!'); empty with meta.chase = chase from the start. */
+  chaseTriggers: number[];
   /** Walls touching at least one passable tile. */
   boundary: Int32Array;
   /** For boundary wall k, its passable neighbours are nbr[nbrStart[k] .. nbrStart[k+1]). */
@@ -120,6 +125,7 @@ export function normalizeMeta(raw: unknown): LevelMeta {
     stones: Number.isFinite(m.stones) ? Math.max(0, Math.min(20, Math.round(m.stones as number))) : DEFAULT_META.stones,
     hint: typeof m.hint === 'string' ? m.hint.slice(0, 200) : DEFAULT_META.hint,
     parTime: Number.isFinite(m.parTime) ? Math.max(5, Math.round(m.parTime as number)) : DEFAULT_META.parTime,
+    ...(m.chase === true ? { chase: true } : {}),
   };
 }
 
@@ -139,7 +145,7 @@ export function parseLevel(text: string, meta: Partial<LevelMeta> | unknown = {}
   const rubble = new Uint8Array(n);
   const lists = {
     drips: [] as number[], waterfalls: [] as number[], listeners: [] as number[], swarms: [] as number[],
-    mimics: [] as number[], tourists: [] as number[], carts: [] as number[],
+    mimics: [] as number[], tourists: [] as number[], carts: [] as number[], chaseTriggers: [] as number[],
   };
   let start = -1;
   let exit = -1;
@@ -164,6 +170,7 @@ export function parseLevel(text: string, meta: Partial<LevelMeta> | unknown = {}
         case '~': pit[i] = 1; break;
         case '=': rail[i] = 1; break;
         case 'H': rail[i] = 1; lists.carts.push(i); break;
+        case '!': lists.chaseTriggers.push(i); break;
       }
     }
   }
