@@ -275,6 +275,8 @@ export function poseTarget(c: Climber): { x: number; chestY: number } | null {
   let chestY: number
   if (fs.length) {
     chestY = fs.reduce((a, f) => a + f.y, 0) / fs.length + BODY.stand + BODY.torso
+    // rest on straight arms: don't stand up higher than the arms want
+    if (hs.length) chestY = Math.min(chestY, Math.max(...hs.map((h) => h.y)) - 0.64)
   } else if (hs.length === 2) {
     const half = Math.hypot(hs[0].x - hs[1].x, hs[0].y - hs[1].y) / 2
     const drop = Math.sqrt(Math.max(0, BODY.reach ** 2 - Math.max(0, half - 0.15) ** 2))

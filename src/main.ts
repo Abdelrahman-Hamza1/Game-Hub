@@ -1,0 +1,909 @@
+import './style.css'
+import { sayCall, setAudio, sfx, unlockAudio } from './audio'
+import { BOT, findRoute, Session, type Lobby, type Summary } from './game/session'
+import { decodeRoute, routeLink, baseUrl } from './game/share'
+import {
+  addLog,
+  bestTick,
+  loadLog,
+  loadSettings,
+  loadSharedRoutes,
+  removeSharedRoute,
+  saveSettings,
+  saveSharedRoute,
+  triedRoutes,
+  type Settings,
+} from './game/storage'
+import { LocalInput } from './input/input'
+import { lerpSnap, Net, newRoomCode, type Cmd } from './net/net'
+import { PALETTE, Renderer, type Toast } from './render/renderer'
+import { ANGLE_LABEL, CALLS, GRADES, YDS } from './sim/constants'
+import { CRAG, randomRoute } from './sim/routes'
+import type { Route } from './sim/types'
+import { emptyInput } from './sim/types'
+import { createWorld, snapshot, stepWorld, type Snap, type World } from './sim/world'
+
+type Screen = 'menu' | 'connecting' | 'game'
+type Modal = null | 'help' | 'log' | 'settings'
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)
+
+class App {
+  settings: Settings = loadSettings()
+  canvas = document.getElementById('game') as HTMLCanvasElement
+  ui = document.getElementById('ui') as HTMLDivElement
+  renderer = new Renderer(this.canvas)
+  input = new LocalInput()
+  screen: Screen = 'menu'
+  modal: Modal = null
+  session: Session | null = null
+  net: Net | null = null
+  lobby: Lobby | null = null
+  snap: Snap | null = null
+  prevSnap: Snap | null = null
+  snapAt = 0
+  prevSnapAt = 0
+  selfId = 'p1'
+  localIds: string[] = []
+  roomCode: string | null = null
+  status = ''
+  toasts: Toast[] = []
+  seenEvent = 0
+  lastSnapT = 0
+  seenCalls = new Set<string>()
+  loggedSummaries = new Set<string>()
+  selectedRoute: string = CRAG[3].id
+  partnerName = 'Partner'
+  lastUiKey = ''
+  lastLobbyV = -1
+  lastLobbyBroadcast = 0
+  sendAcc = 0
+  acc = 0
+  last = performance.now()
+  preview: World
+  previewRoute: Route | null = null
+  previewPan = 0
+  pendingRoute: Route | null = null
+
+  constructor() {
+    this.input.attach(this.canvas)
+    this.input.toWorld = this.renderer.toWorld
+    this.input.onShortcut = (code) => this.shortcut(code)
+    this.preview = createWorld(CRAG[3], { leaderMass: 70, belayerMass: 70, tired: 0, autoFeet: false, bot: true })
+    setAudio(this.settings.sound, this.settings.voice)
+    window.addEventListener('pointerdown', () => unlockAudio(), { once: false })
+    this.ui.addEventListener('click', (e) => this.onClick(e))
+    this.ui.addEventListener('change', (e) => this.onChange(e))
+    void this.readUrl()
+    this.renderUi(true)
+    requestAnimationFrame((t) => this.frame(t))
+  }
+
+  // ---------- URL handling: ?route= and ?room= ----------
+
+  async readUrl(): Promise<void> {
+    const q = new URLSearchParams(location.search)
+    const code = q.get('route')
+    if (code) {
+      const r = await decodeRoute(code)
+      if (r) {
+        saveSharedRoute(r)
+        this.pendingRoute = r
+        this.selectedRoute = r.id
+        this.toast(`Route added: ${r.name} (${r.grade})`, 'good')
+      } else this.toast('That route link is broken', 'bad')
+    }
+    const room = q.get('room')
+    if (room) {
+      this.roomCode = room.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24)
+      if (this.settings.name) this.startOnline(this.roomCode)
+    }
+    if (code || room) history.replaceState(null, '', baseUrl() + (room && !code ? `?room=${encodeURIComponent(room)}` : ''))
+    this.renderUi(true)
+  }
+
+  // ---------- starting and leaving ----------
+
+  me(): { name: string; mass: number; tried: string[] } {
+    const name = this.settings.name.trim() || 'Climber'
+    return { name, mass: this.settings.mass, tried: triedRoutes(name) }
+  }
+
+  private seedRoutes(s: Session): void {
+    for (const r of loadSharedRoutes()) s.addRoute(r)
+    s.setAutoFeet(this.settings.autoFeet)
+  }
+
+  startSolo(): void {
+    this.leave(false)
+    const s = new Session('solo', 'p1')
+    s.addPlayer({ id: 'p1', ...this.me() })
+    this.seedRoutes(s)
+    this.session = s
+    this.selfId = 'p1'
+    this.localIds = ['p1']
+    this.enterGame()
+  }
+
+  startLocal(): void {
+    this.leave(false)
+    const s = new Session('local', 'p1')
+    s.addPlayer({ id: 'p1', ...this.me() })
+    const partner = this.partnerName.trim() || 'Partner'
+    s.addPlayer({ id: 'p2', name: partner, mass: 70, tried: triedRoutes(partner) })
+    this.seedRoutes(s)
+    this.session = s
+    this.selfId = 'p1'
+    this.localIds = ['p1', 'p2']
+    this.enterGame()
+  }
+
+  startOnline(code: string): void {
+    this.leave(false)
+    this.roomCode = code
+    history.replaceState(null, '', `${baseUrl()}?room=${encodeURIComponent(code)}`)
+    const net = new Net({
+      onRole: (isHost) => {
+        if (isHost) {
+          const old = this.lobby
+          const s = new Session('online', net.selfId)
+          s.addPlayer({ id: net.selfId, ...this.me() })
+          if (old) {
+            // host migration: keep the day going for everyone still here
+            for (const p of old.players) if (p.id !== net.selfId && net.peers.has(p.id)) s.addPlayer(p)
+            for (const r of old.extra) s.addRoute(r)
+            s.lobby.day = old.day
+            s.lobby.history = old.history
+            for (const p of s.lobby.players) p.energy = old.players.find((o) => o.id === p.id)?.energy ?? 100
+          }
+          this.seedRoutes(s)
+          this.session = s
+          this.lobby = s.lobby
+        } else {
+          this.session = null
+        }
+        this.selfId = net.selfId
+        this.localIds = [net.selfId]
+        this.enterGame()
+      },
+      onLobby: (l) => {
+        this.lobby = l
+        if (this.screen !== 'game') this.enterGame()
+      },
+      onSnap: (sn) => {
+        this.prevSnap = this.snap
+        this.prevSnapAt = this.snapAt
+        this.snap = sn
+        this.snapAt = performance.now()
+      },
+      onInput: (peer, f) => this.session?.setInput(peer, f),
+      onCmd: (peer, c) => this.handleCmd(peer, c),
+      onHello: (peer, h) => {
+        this.session?.addPlayer({ id: peer, name: String(h.name).slice(0, 20) || 'Climber', mass: clampMass(h.mass), tried: (h.tried || []).slice(0, 200) })
+      },
+      onPeerLeave: (peer) => {
+        const name = this.lobby?.players.find((p) => p.id === peer)?.name
+        this.session?.removePlayer(peer)
+        if (name) this.toast(`${name} left`, 'info')
+      },
+      onStatus: (t) => {
+        this.status = t
+        this.renderUi(true)
+      },
+    })
+    this.net = net
+    this.selfId = net.selfId
+    this.screen = 'connecting'
+    net.join(code, () => this.me())
+    this.renderUi(true)
+  }
+
+  enterGame(): void {
+    this.screen = 'game'
+    if (this.session) this.lobby = this.session.lobby
+    if (this.pendingRoute && this.session) {
+      this.session.addRoute(this.pendingRoute)
+      this.pendingRoute = null
+    } else if (this.pendingRoute && this.net) {
+      this.cmd({ type: 'route', route: this.pendingRoute })
+      this.pendingRoute = null
+    }
+    this.renderUi(true)
+  }
+
+  leave(render = true): void {
+    this.net?.leave()
+    this.net = null
+    this.session = null
+    this.lobby = null
+    this.snap = this.prevSnap = null
+    this.localIds = []
+    this.screen = 'menu'
+    this.modal = null
+    this.status = ''
+    if (render) {
+      history.replaceState(null, '', baseUrl())
+      this.roomCode = null
+      this.renderUi(true)
+    }
+  }
+
+  cmd(c: Cmd): void {
+    if (this.session) this.handleCmd(this.selfId, c)
+    else this.net?.sendCmd(c)
+  }
+
+  handleCmd(from: string, c: Cmd): void {
+    const s = this.session
+    if (!s) return
+    void from
+    switch (c.type) {
+      case 'start':
+        if (s.lobby.phase !== 'climb') s.start(c.routeId, c.leader, c.belayer)
+        break
+      case 'route':
+        s.addRoute(c.route)
+        break
+      case 'giveup':
+        s.giveUp()
+        break
+      case 'back':
+        if (s.lobby.phase !== 'climb' || from === s.lobby.hostId) s.backToCrag()
+        break
+      case 'newday':
+        s.newDay()
+        break
+      case 'autofeet':
+        s.setAutoFeet(!!c.on)
+        break
+    }
+    this.renderUi(true)
+  }
+
+  // ---------- main loop ----------
+
+  frame(t: number): void {
+    const dt = Math.min(0.1, (t - this.last) / 1000)
+    this.last = t
+    const s = this.session
+    if (s) {
+      this.acc += dt
+      let steps = 0
+      while (this.acc >= 1 / 60 && steps < 6) {
+        const f = this.input.sample()
+        for (const id of this.localIds) s.setInput(id, f)
+        s.step(1 / 60)
+        this.acc -= 1 / 60
+        steps++
+      }
+      if (steps === 6) this.acc = 0
+      this.lobby = s.lobby
+      this.snap = s.snap()
+      if (this.net) {
+        this.sendAcc += dt
+        if (this.sendAcc >= 1 / 30 && this.snap && s.lobby.phase !== 'crag') {
+          this.net.broadcastSnap(this.snap)
+          this.sendAcc = 0
+        }
+        if (s.lobby.v !== this.lastLobbyV || t - this.lastLobbyBroadcast > 1000) {
+          this.net.broadcastLobby(s.lobby)
+          this.lastLobbyBroadcast = t
+        }
+      }
+    } else if (this.net && this.net.hostId) {
+      this.sendAcc += dt
+      if (this.sendAcc >= 1 / 30) {
+        this.net.sendInput(this.input.sample((this.net.latency ?? 0) / 2000))
+        this.sendAcc = 0
+      }
+    }
+    const lobby = this.lobby
+    const playing = this.screen === 'game' && lobby && (lobby.phase === 'climb' || lobby.phase === 'summary')
+    this.input.enabled = !!(playing && lobby!.phase === 'climb' && this.modal === null && (this.isLocalLeader() || this.isLocalBelayer()))
+    if (lobby && lobby.v !== this.lastLobbyV) {
+      this.lastLobbyV = lobby.v
+      this.onLobbyChange()
+    }
+    this.draw(dt, !!playing)
+    requestAnimationFrame((tt) => this.frame(tt))
+  }
+
+  isLocalLeader(): boolean {
+    return !!this.lobby && this.localIds.includes(this.lobby.leader ?? '')
+  }
+  isLocalBelayer(): boolean {
+    return !!this.lobby && this.localIds.includes(this.lobby.belayer ?? '')
+  }
+
+  private viewSnap(): Snap | null {
+    if (this.session || !this.snap) return this.snap
+    if (!this.prevSnap) return this.snap
+    const interval = Math.max(1, this.snapAt - this.prevSnapAt)
+    const k = (performance.now() - this.snapAt) / interval
+    return lerpSnap(this.prevSnap, this.snap, Math.min(1, k))
+  }
+
+  draw(dt: number, playing: boolean): void {
+    const lobby = this.lobby
+    let route: Route | null = null
+    let snap: Snap | null = null
+    if (playing && lobby) {
+      route = findRoute(lobby, lobby.routeId)
+      snap = this.viewSnap()
+    }
+    if (!route || !snap) {
+      // backdrop: the selected route with a climber waiting at the base
+      const want = this.screen === 'game' && lobby ? findRoute(lobby, this.selectedRoute) ?? CRAG[3] : findRoute({ extra: loadSharedRoutes() }, this.selectedRoute) ?? CRAG[3]
+      if (this.previewRoute?.id !== want.id) {
+        this.preview = createWorld(want, { leaderMass: 70, belayerMass: 70, tired: 0, autoFeet: false, bot: true })
+        this.previewRoute = want
+        this.previewPan = 0
+      }
+      stepWorld(this.preview, dt, emptyInput(), null)
+      route = want
+      snap = snapshot(this.preview)
+      this.previewPan += dt
+      const span = route.height - 4
+      const y = 4 + (span / 2) * (1 - Math.cos(this.previewPan * 0.25))
+      this.renderer.follow(route, y, dt)
+    } else {
+      this.processEvents(snap)
+      this.renderer.follow(route, snap.c.chest[1], dt)
+    }
+    const players = lobby?.players ?? []
+    const P = (id: string | null) => players.find((p) => p.id === id)
+    const leaderP = playing ? P(lobby!.leader) : null
+    const belayP = playing && lobby!.belayer !== BOT ? P(lobby!.belayer) : null
+    const specs = playing ? players.filter((p) => p.id !== lobby!.leader && p.id !== lobby!.belayer) : []
+    this.toasts = this.toasts.filter((x) => performance.now() / 1000 - x.t < 3)
+    this.renderer.render({
+      route,
+      snap,
+      leader: leaderP ? { name: leaderP.name, color: leaderP.color } : { name: this.me().name, color: 0 },
+      belayer: belayP ? { name: belayP.name, color: belayP.color } : null,
+      spectators: specs.map((p) => ({ name: p.name, color: p.color })),
+      localLeader: playing && this.isLocalLeader(),
+      localBelayer: playing && this.isLocalBelayer(),
+      input: playing ? { mouse: this.input.mouse, handsDown: this.input.handsDown } : null,
+      settings: this.settings,
+      toasts: playing ? this.toasts : [],
+      now: performance.now() / 1000,
+      helpOpen: this.modal === 'help',
+      latency: this.net && !this.net.isHost ? this.net.latency : null,
+      hud: playing,
+    })
+  }
+
+  processEvents(snap: Snap): void {
+    if (snap.t < this.lastSnapT) {
+      this.seenEvent = 0
+      this.seenCalls.clear()
+    }
+    this.lastSnapT = snap.t
+    for (const e of snap.events) {
+      if (e.id <= this.seenEvent) continue
+      this.seenEvent = e.id
+      sfx(e.type)
+      const now = performance.now() / 1000
+      if (e.type === 'catch' && e.text) this.toasts.push({ text: e.text, t: now, kind: e.text.startsWith('Brutal') ? 'bad' : 'info' })
+      else if (e.type === 'top' && e.text) this.toasts.push({ text: e.text, t: now, kind: 'good' })
+      else if ((e.type === 'pop' || e.type === 'clipfail' || e.type === 'ground' || e.type === 'unclip') && e.text) this.toasts.push({ text: e.text, t: now, kind: 'bad' })
+      else if (e.type === 'clip' && e.text) this.toasts.push({ text: e.text, t: now, kind: e.text.startsWith('Back') ? 'bad' : 'good' })
+      else if (e.type === 'hint' && e.text && this.isLocalLeader()) this.toasts.push({ text: e.text, t: now, kind: 'info' })
+      if (this.toasts.length > 3) this.toasts.shift()
+    }
+    for (const c of snap.calls) {
+      const key = `${c.t}-${c.id}`
+      if (this.seenCalls.has(key)) continue
+      this.seenCalls.add(key)
+      sayCall(c.id, c.role)
+    }
+  }
+
+  toast(text: string, kind: Toast['kind']): void {
+    this.toasts.push({ text, t: performance.now() / 1000, kind })
+  }
+
+  onLobbyChange(): void {
+    const l = this.lobby
+    if (!l) return
+    if (l.routeId && l.phase !== 'crag') this.selectedRoute = l.routeId
+    if (l.phase === 'climb') {
+      const route = findRoute(l, l.routeId)
+      if (route) this.renderer.follow(route, 2, 1, true)
+    }
+    // log sends and attempts for players on this machine
+    const s = l.summary
+    if (s && l.phase === 'summary') {
+      const key = `${l.day}-${l.history.length}-${s.routeId}-${s.leader}`
+      if (!this.loggedSummaries.has(key) && this.localIds.includes(s.leader)) {
+        this.loggedSummaries.add(key)
+        addLog({
+          date: s.date,
+          routeId: s.routeId,
+          routeName: s.routeName,
+          grade: s.grade,
+          climber: s.leaderName,
+          style: s.style,
+          topped: s.topped,
+          highPoint: s.highPoint,
+          falls: s.falls,
+        })
+        const r = findRoute(l, s.routeId)
+        if (r && !CRAG.some((c) => c.id === r.id)) saveSharedRoute(r)
+      }
+    }
+    this.renderUi(true)
+  }
+
+  shortcut(code: string): void {
+    if (code === 'KeyH') this.modal = this.modal === 'help' ? null : 'help'
+    else if (code === 'KeyG') {
+      this.settings.debug = !this.settings.debug
+      saveSettings(this.settings)
+    } else if (code === 'Escape') this.modal = null
+    else return
+    this.renderUi(true)
+  }
+
+  // ---------- UI ----------
+
+  grade(g: string): string {
+    return this.settings.grades === 'yds' ? YDS[g] ?? g : g
+  }
+
+  renderUi(force = false): void {
+    const html = this.uiHtml()
+    void force
+    if (html === this.lastUiKey) return
+    this.lastUiKey = html
+    const active = document.activeElement as HTMLElement | null
+    const activeId = active?.id
+    this.ui.innerHTML = html
+    if (activeId) document.getElementById(activeId)?.focus()
+  }
+
+  uiHtml(): string {
+    let main = ''
+    if (this.screen === 'menu') main = this.menuHtml()
+    else if (this.screen === 'connecting') main = this.connectingHtml()
+    else if (this.lobby) {
+      if (this.lobby.phase === 'crag') main = this.cragHtml()
+      else if (this.lobby.phase === 'climb') main = this.climbHtml()
+      else main = this.climbHtml() + this.summaryHtml()
+    }
+    return main + this.modalHtml()
+  }
+
+  menuHtml(): string {
+    const s = this.settings
+    const joinCode = this.roomCode ?? ''
+    return `
+    <div class="menu"><div class="menu-inner">
+      <div class="kicker">Co-op climbing · real rope work</div>
+      <h1>Short<br><span>Rope</span></h1>
+      <p class="lede">Lead, clip and climb one limb at a time while your friend feeds slack and catches your falls. The rope is simulated, so the way you'd work together at the crag is the way you win.</p>
+      <div class="form-row">
+        <div class="field"><label for="f-name">Your name</label><input id="f-name" maxlength="20" value="${esc(s.name)}" placeholder="e.g. Omar"></div>
+        <div class="field"><label for="f-mass">Weight (kg)</label><input id="f-mass" type="number" min="40" max="120" value="${s.mass}" style="width:90px"></div>
+        <div class="field"><label for="f-partner">Partner (same computer)</label><input id="f-partner" maxlength="20" value="${esc(this.partnerName)}"></div>
+      </div>
+      <div class="modes">
+        <button class="mode-card" data-act="solo"><b>Solo</b><span>You lead, a bot belays. Learn the moves.</span></button>
+        <button class="mode-card" data-act="local"><b>Two players</b><span>One computer: mouse climbs, arrow keys belay.</span></button>
+        <button class="mode-card hot" data-act="host"><b>Online room</b><span>Make a room and send the link to your crew.</span></button>
+      </div>
+      <div class="join">
+        <label for="f-room">Join a room</label>
+        <input id="f-room" placeholder="room code" value="${esc(joinCode)}" style="width:150px">
+        <button class="btn dark" data-act="join">Join</button>
+      </div>
+      <div class="links">
+        <button class="btn small" data-act="modal-help">How to play</button>
+        <button class="btn small" data-act="modal-log">Logbook</button>
+        <button class="btn small" data-act="modal-settings">Settings</button>
+      </div>
+    </div></div>`
+  }
+
+  connectingHtml(): string {
+    return `<div class="center-card"><div>
+      <div class="spinner"></div>
+      <h2 style="font-size:40px">Room ${esc(this.roomCode ?? '')}</h2>
+      <p class="note">${esc(this.status || 'Connecting…')}</p>
+      <p class="note">If nobody else is here, you'll host the room in a few seconds.</p>
+      <button class="btn" data-act="leave">Cancel</button>
+    </div></div>`
+  }
+
+  cragHtml(): string {
+    const l = this.lobby!
+    const players = l.players
+    const extra = l.extra
+    const sel = findRoute(l, this.selectedRoute) ?? CRAG[0]
+    const roles = this.defaultRoles()
+    const routeCard = (r: Route) => {
+      const tick = bestTick(r.id, this.me().name)
+      return `<button class="route ${r.id === sel.id ? 'on' : ''}" data-route="${esc(r.id)}">
+        <span class="g">${esc(this.grade(r.grade))}</span>
+        <span><span class="n">${esc(r.name)}</span><br><span class="m">${esc(ANGLE_LABEL[r.angle])} · ${Math.round(r.height)} m · ${r.bolts.length} bolts${r.fa ? ` · FA ${esc(r.fa.by)}` : ''}</span></span>
+        ${tick ? `<span class="tick ${tick === 'tried' ? 'tried' : ''}">${tick}</span>` : '<span></span>'}
+      </button>`
+    }
+    const playerRow = (p: Lobby['players'][number]) => `<div class="player">
+        <i style="background:${PALETTE[p.color % 4].shirt}"></i>
+        <span>${esc(p.name)}${p.id === this.selfId || (l.mode === 'local' && this.localIds.includes(p.id)) ? ' <span class="kicker">you</span>' : ''}${p.id === l.hostId && l.mode === 'online' ? ' <span class="kicker">host</span>' : ''}</span>
+        <span class="energy" title="Day energy ${Math.round(p.energy)}%"><span style="width:${Math.round(p.energy)}%"></span></span>
+      </div>`
+    const opt = (id: string, name: string, on: boolean) => `<option value="${esc(id)}" ${on ? 'selected' : ''}>${esc(name)}</option>`
+    const roomBar =
+      l.mode === 'online'
+        ? `<div class="row"><span class="chip dark">Room ${esc(this.roomCode ?? '')}</span><button class="btn small" data-act="copy-room">Copy invite link</button></div>`
+        : ''
+    const isPlayer = players.some((p) => this.localIds.includes(p.id))
+    return `<div class="side">
+      <div class="row spread"><span class="kicker">Crag Day · day ${l.day}</span><button class="btn small" data-act="leave">Leave</button></div>
+      <h2>The Crag</h2>
+      ${roomBar}
+      <div class="players">${players.map(playerRow).join('')}</div>
+      ${l.mode === 'online' && players.length < 2 ? '<p class="note">Waiting for friends. Send them the invite link, or climb with the bot belayer meanwhile.</p>' : ''}
+      <div class="routes">${CRAG.map(routeCard).join('')}</div>
+      ${extra.length ? `<div class="kicker">Shared routes</div><div class="routes">${extra.map(routeCard).join('')}</div>` : ''}
+      <div class="row">
+        <select id="f-newgrade">${GRADES.map((g) => opt(g, this.grade(g), g === '6a')).join('')}</select>
+        <button class="btn small" data-act="random-route">New random route</button>
+        <button class="btn small" data-act="copy-route">Copy route link</button>
+        ${!CRAG.some((c) => c.id === sel.id) ? '<button class="btn small" data-act="forget-route">Forget route</button>' : ''}
+      </div>
+      <div class="roles">
+        <div class="field"><label for="f-leader">Leader</label><select id="f-leader">${players.map((p) => opt(p.id, p.name, p.id === roles.leader)).join('')}</select></div>
+        <div class="field"><label for="f-belayer">Belayer</label><select id="f-belayer">${opt(BOT, 'Bot belayer', roles.belayer === BOT)}${players.map((p) => opt(p.id, p.name, p.id === roles.belayer)).join('')}</select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-autofeet" ${l.autoFeet ? 'checked' : ''}> Auto feet (feet step by themselves)</label>
+      <button class="go" data-act="start" ${isPlayer ? '' : 'disabled'}>Tie in: ${esc(sel.name)}</button>
+      <p class="note">${esc(this.grade(sel.grade))} · ${esc(ANGLE_LABEL[sel.angle])}. Every attempt costs day energy; tired climbers start pumped.</p>
+      <div class="row"><button class="btn small" data-act="modal-help">How to play</button><button class="btn small" data-act="modal-log">Logbook</button><button class="btn small" data-act="modal-settings">Settings</button></div>
+    </div>`
+  }
+
+  roleOverride: { leader?: string; belayer?: string } = {}
+
+  defaultRoles(): { leader: string; belayer: string } {
+    const l = this.lobby!
+    const base = this.session ? this.session.nextRoles() : guessRoles(l)
+    const ids = new Set(l.players.map((p) => p.id))
+    const leader = this.roleOverride.leader && ids.has(this.roleOverride.leader) ? this.roleOverride.leader : base.leader
+    let belayer = this.roleOverride.belayer && (ids.has(this.roleOverride.belayer) || this.roleOverride.belayer === BOT) ? this.roleOverride.belayer : base.belayer
+    if (belayer === leader) belayer = BOT
+    return { leader, belayer }
+  }
+
+  climbHtml(): string {
+    const l = this.lobby!
+    const canEnd = this.isLocalLeader() || !!this.session
+    const lead = l.players.find((p) => p.id === l.leader)?.name ?? ''
+    return `<div class="climb-bar">
+      ${l.phase === 'climb' && canEnd ? `<button class="btn small" data-act="giveup" title="Ask to be lowered; the attempt won't count as a send">Lower me off</button>` : ''}
+      ${l.phase === 'climb' && this.session ? `<button class="btn small" data-act="force-end">End attempt</button>` : ''}
+      <button class="btn small" data-act="modal-help">Controls (H)</button>
+      <button class="btn small dark" data-act="leave">Leave</button>
+    </div>
+    ${l.phase === 'climb' && !this.isLocalLeader() && !this.isLocalBelayer() ? `<div class="status">Watching ${esc(lead)} climb. Your turn is coming.</div>` : ''}`
+  }
+
+  summaryHtml(): string {
+    const l = this.lobby!
+    const s = l.summary
+    if (!s) return ''
+    const title = headline(s)
+    const next = this.session ? this.session.nextRoles() : guessRoles(l)
+    const nextName = l.players.find((p) => p.id === next.leader)?.name ?? ''
+    const isPlayer = l.players.some((p) => this.localIds.includes(p.id))
+    return `<div class="modal-bg"><div class="modal">
+      <div class="kicker">${esc(s.routeName)} · ${esc(this.grade(s.grade))} · ${esc(s.leaderName)}</div>
+      <h2>${title}</h2>
+      <div class="stats">
+        <div><span>High point</span><b>${s.highPoint.toFixed(1)} m</b></div>
+        <div><span>Falls</span><b>${s.falls}</b></div>
+        <div><span>Style</span><b>${s.style ?? (s.topped ? 'Topped' : '—')}</b></div>
+        <div><span>Energy used</span><b>${s.energyCost}%</b></div>
+      </div>
+      ${l.dayOver ? '<p class="note">Everyone is out of energy. That was a good day at the crag.</p>' : ''}
+      <div class="row">
+        ${l.dayOver ? `<button class="btn primary" data-act="newday" ${isPlayer ? '' : 'disabled'}>Start a new day</button>` : `<button class="btn primary" data-act="again" ${isPlayer ? '' : 'disabled'}>Next go: ${esc(nextName)} leads</button>`}
+        <button class="btn" data-act="back">Pick another route</button>
+        <button class="btn" data-act="copy-route-summary">Copy route link</button>
+      </div>
+    </div></div>`
+  }
+
+  modalHtml(): string {
+    if (!this.modal) return ''
+    if (this.modal === 'help') return helpHtml()
+    if (this.modal === 'log') return this.logHtml()
+    return this.settingsHtml()
+  }
+
+  logHtml(): string {
+    const log = loadLog().slice().reverse()
+    const sends = log.filter((e) => e.style)
+    const hardest = sends.reduce<string | null>((a, e) => (!a || GRADES.indexOf(e.grade) > GRADES.indexOf(a) ? e.grade : a), null)
+    return `<div class="modal-bg"><div class="modal">
+      <div class="row spread"><span class="kicker">Logbook · this browser</span><button class="btn small" data-act="close">Close</button></div>
+      <h2>Logbook</h2>
+      <div class="stats">
+        <div><span>Attempts</span><b>${log.length}</b></div>
+        <div><span>Sends</span><b>${sends.length}</b></div>
+        <div><span>Hardest send</span><b>${hardest ? esc(this.grade(hardest)) : '—'}</b></div>
+      </div>
+      ${
+        log.length
+          ? `<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Climber</th><th>Route</th><th>Grade</th><th>Result</th></tr></thead><tbody>
+        ${log
+          .slice(0, 120)
+          .map(
+            (e) =>
+              `<tr><td>${esc(e.date)}</td><td>${esc(e.climber)}</td><td>${esc(e.routeName)}</td><td>${esc(this.grade(e.grade))}</td><td>${e.style ? `<span class="tick">${e.style}</span>` : `${e.topped ? 'topped' : `${e.highPoint.toFixed(1)} m`}${e.falls ? ` · ${e.falls} fall${e.falls > 1 ? 's' : ''}` : ''}`}</td></tr>`,
+          )
+          .join('')}</tbody></table></div>`
+          : '<p class="note">No climbs yet. Tie in and go.</p>'
+      }
+    </div></div>`
+  }
+
+  settingsHtml(): string {
+    const s = this.settings
+    return `<div class="modal-bg"><div class="modal">
+      <div class="row spread"><span class="kicker">Settings · saved in this browser</span><button class="btn small" data-act="close">Done</button></div>
+      <h2>Settings</h2>
+      <div class="form-row">
+        <div class="field"><label for="s-name">Name</label><input id="s-name" maxlength="20" value="${esc(s.name)}"></div>
+        <div class="field"><label for="s-mass">Weight (kg)</label><input id="s-mass" type="number" min="40" max="120" value="${s.mass}" style="width:90px"></div>
+        <div class="field"><label for="s-grades">Grades</label><select id="s-grades"><option value="french" ${s.grades === 'french' ? 'selected' : ''}>French (6a+)</option><option value="yds" ${s.grades === 'yds' ? 'selected' : ''}>YDS (5.10b)</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="s-autofeet" ${s.autoFeet ? 'checked' : ''}> Auto feet by default (easier for non-climbers)</label>
+      <label class="check"><input type="checkbox" id="s-sound" ${s.sound ? 'checked' : ''}> Sound effects</label>
+      <label class="check"><input type="checkbox" id="s-voice" ${s.voice ? 'checked' : ''}> Spoken calls</label>
+      <label class="check"><input type="checkbox" id="s-debug" ${s.debug ? 'checked' : ''}> Fall readout overlay (also G in game)</label>
+      <p class="note">Your weight matters: a lighter belayer gets lifted further on a big fall, a heavier one gives a harder catch.</p>
+    </div></div>`
+  }
+
+  // ---------- UI events ----------
+
+  onChange(e: Event): void {
+    const t = e.target as HTMLInputElement
+    const s = this.settings
+    switch (t.id) {
+      case 'f-name':
+      case 's-name':
+        // typing fields never re-render, or a click that blurred them gets lost
+        s.name = t.value.trim().slice(0, 20)
+        saveSettings(s)
+        return
+      case 'f-mass':
+      case 's-mass':
+        s.mass = clampMass(+t.value)
+        saveSettings(s)
+        return
+      case 'f-partner':
+        this.partnerName = t.value
+        return
+      case 's-grades':
+        s.grades = t.value === 'yds' ? 'yds' : 'french'
+        break
+      case 's-autofeet':
+        s.autoFeet = t.checked
+        break
+      case 's-sound':
+        s.sound = t.checked
+        break
+      case 's-voice':
+        s.voice = t.checked
+        break
+      case 's-debug':
+        s.debug = t.checked
+        break
+      case 'f-autofeet':
+        s.autoFeet = t.checked
+        this.cmd({ type: 'autofeet', on: t.checked })
+        break
+      case 'f-leader':
+        this.roleOverride.leader = t.value
+        this.renderUi(true)
+        return
+      case 'f-belayer':
+        this.roleOverride.belayer = t.value
+        this.renderUi(true)
+        return
+      default:
+        return
+    }
+    saveSettings(s)
+    setAudio(s.sound, s.voice)
+    this.renderUi(true)
+  }
+
+  async onClick(e: Event): Promise<void> {
+    const el = (e.target as HTMLElement).closest('[data-act],[data-route]') as HTMLElement | null
+    if (!el) {
+      if ((e.target as HTMLElement).classList.contains('modal-bg') && this.modal) {
+        this.modal = null
+        this.renderUi(true)
+      }
+      return
+    }
+    unlockAudio()
+    const routeId = el.dataset.route
+    if (routeId) {
+      this.selectedRoute = routeId
+      this.renderUi(true)
+      return
+    }
+    const act = el.dataset.act!
+    const needName = () => {
+      if (!this.settings.name.trim()) {
+        const input = document.getElementById('f-name') as HTMLInputElement | null
+        if (input?.value.trim()) {
+          this.settings.name = input.value.trim().slice(0, 20)
+          saveSettings(this.settings)
+          return false
+        }
+        input?.focus()
+        this.toast('Pick a name first', 'info')
+        input?.setAttribute('placeholder', 'Your name, please')
+        return true
+      }
+      return false
+    }
+    switch (act) {
+      case 'solo':
+        if (!needName()) this.startSolo()
+        break
+      case 'local':
+        if (!needName()) this.startLocal()
+        break
+      case 'host':
+        if (!needName()) this.startOnline(newRoomCode())
+        break
+      case 'join': {
+        const code = (document.getElementById('f-room') as HTMLInputElement).value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+        if (!code) {
+          this.toast('Type the room code first', 'info')
+          break
+        }
+        if (!needName()) this.startOnline(code)
+        break
+      }
+      case 'leave':
+        this.leave()
+        break
+      case 'modal-help':
+        this.modal = 'help'
+        break
+      case 'modal-log':
+        this.modal = 'log'
+        break
+      case 'modal-settings':
+        this.modal = 'settings'
+        break
+      case 'close':
+        this.modal = null
+        break
+      case 'start': {
+        const roles = this.defaultRoles()
+        this.cmd({ type: 'start', routeId: this.selectedRoute, leader: roles.leader, belayer: roles.belayer })
+        this.roleOverride = {}
+        break
+      }
+      case 'again': {
+        const l = this.lobby!
+        const roles = this.session ? this.session.nextRoles() : guessRoles(l)
+        this.cmd({ type: 'start', routeId: l.routeId!, leader: roles.leader, belayer: roles.belayer })
+        break
+      }
+      case 'back':
+        this.cmd({ type: 'back' })
+        break
+      case 'newday':
+        this.cmd({ type: 'newday' })
+        break
+      case 'giveup':
+        this.cmd({ type: 'giveup' })
+        break
+      case 'force-end':
+        this.session?.forceEnd()
+        break
+      case 'random-route': {
+        const g = (document.getElementById('f-newgrade') as HTMLSelectElement).value
+        const r = randomRoute(g, this.me().name)
+        saveSharedRoute(r)
+        this.cmd({ type: 'route', route: r })
+        this.selectedRoute = r.id
+        if (this.session) this.session.addRoute(r)
+        this.toast(`New route: ${r.name}`, 'good')
+        break
+      }
+      case 'forget-route':
+        removeSharedRoute(this.selectedRoute)
+        this.selectedRoute = CRAG[3].id
+        break
+      case 'copy-route':
+      case 'copy-route-summary': {
+        const l = this.lobby
+        const r = l ? findRoute(l, act === 'copy-route' ? this.selectedRoute : l.routeId) : null
+        if (r) await copy(await routeLink(r), 'Route link copied', this)
+        break
+      }
+      case 'copy-room':
+        await copy(`${baseUrl()}?room=${encodeURIComponent(this.roomCode ?? '')}`, 'Invite link copied', this)
+        break
+    }
+    this.renderUi(true)
+  }
+}
+
+function clampMass(m: number): number {
+  return Math.max(40, Math.min(120, Math.round(Number.isFinite(m) ? m : 70)))
+}
+
+function guessRoles(l: Lobby): { leader: string; belayer: string } {
+  const ps = l.players
+  if (!ps.length) return { leader: '', belayer: BOT }
+  if (ps.length === 1) return { leader: ps[0].id, belayer: BOT }
+  const i = Math.max(0, ps.findIndex((p) => p.id === l.leader))
+  const leader = l.leader ? ps[(i + 1) % ps.length] : ps[0]
+  const belayer = ps[(ps.indexOf(leader) + 1) % ps.length]
+  return { leader: leader.id, belayer: belayer.id }
+}
+
+function headline(s: Summary): string {
+  if (s.sent && s.style) return `Sent! <span>${s.style}</span>`
+  if (s.reason === 'ground') return 'Ground <span>fall</span>'
+  if (s.topped) return 'Topped, <span>not clean</span>'
+  return `Lowered <span>off</span>`
+}
+
+async function copy(text: string, ok: string, app: App): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text)
+    app.toast(ok, 'good')
+  } catch {
+    window.prompt('Copy this link:', text)
+  }
+}
+
+function helpHtml(): string {
+  const calls = CALLS.map((c) => `<kbd>${c.key}</kbd> ${c.text}`).join(' · ')
+  return `<div class="modal-bg"><div class="modal">
+    <div class="row spread"><span class="kicker">How to play</span><button class="btn small" data-act="close">Close (H)</button></div>
+    <h2>Climb <span>&amp;</span> belay</h2>
+    <table>
+      <thead><tr><th>Leader</th><th>Keyboard + mouse</th></tr></thead>
+      <tbody>
+        <tr><td>Left hand</td><td>Hold left mouse button and move; release near a hold to grab it</td></tr>
+        <tr><td>Right hand</td><td>Hold right mouse button (trackpad: <kbd>Shift</kbd> + click)</td></tr>
+        <tr><td>Feet</td><td><kbd>Q</kbd> / <kbd>E</kbd> step to the hold marked Q / E</td></tr>
+        <tr><td>Hips to the wall</td><td>Hold <kbd>Space</kbd>: less pump, a little less reach</td></tr>
+        <tr><td>Clip</td><td><kbd>F</kbd> with one hand free when a draw shows F. Top anchor too.</td></tr>
+        <tr><td>Chalk / shake out</td><td><kbd>C</kbd> / hold <kbd>R</kbd> with a free hand</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Belayer</th><th>Keyboard</th></tr></thead>
+      <tbody>
+        <tr><td>Feed slack / lower</td><td>Hold <kbd>↓</kbd></td></tr>
+        <tr><td>Take in</td><td>Hold <kbd>↑</kbd></td></tr>
+        <tr><td>Catch</td><td>Hold <kbd>Enter</kbd> when they fall</td></tr>
+        <tr><td>Soft catch</td><td><kbd>Shift</kbd> + <kbd>Enter</kbd>: a hop as the rope comes tight</td></tr>
+      </tbody>
+    </table>
+    <p class="note"><b>Calls:</b> ${calls}</p>
+    <p class="note"><b>Tips.</b> Feet first: step up with Q/E, then reach. Rest on jugs with your feet on. Ask for slack before you clip ("Clipping!") or you'll short-rope yourself. "Falling!" gives your belayer a bigger catch window. A send means reaching the top anchor with no falls and no rests on the rope.</p>
+    <p class="note">On one computer the mouse climbs and the arrow keys belay. <kbd>G</kbd> shows the fall readout.</p>
+  </div></div>`
+}
+
+const app = new App()
+// handle for automated browser tests
+;(window as unknown as { __shortRope: App }).__shortRope = app
