@@ -55,6 +55,10 @@ export interface Lobby {
   autoFeet: boolean
   day: number
   dayOver: boolean
+  /** when this session started; the older session wins if two hosts meet */
+  created: number
+  /** the host's suggestion for the next attempt */
+  next: { leader: string; belayer: string } | null
 }
 
 export const BOT = 'bot'
@@ -86,10 +90,13 @@ export class Session {
       autoFeet: false,
       day: 1,
       dayOver: false,
+      created: Date.now(),
+      next: null,
     }
   }
 
   private bump(): void {
+    this.lobby.next = this.lobby.players.length ? this.nextRoles() : null
     this.lobby.v++
   }
 
@@ -109,9 +116,13 @@ export class Session {
     this.lobby.players = this.lobby.players.filter((p) => p.id !== id)
     this.inputs.delete(id)
     const { leader, belayer } = this.lobby
-    if (this.lobby.phase === 'climb' && (leader === id || belayer === id)) {
+    if (this.lobby.phase === 'climb' && leader === id) {
       this.world = null
       this.lobby.phase = 'crag'
+    } else if (this.lobby.phase === 'climb' && belayer === id && this.world) {
+      // the bot takes over the rope
+      this.world.bot = { fallT: -1, takeUntil: 0, slackUntil: 0, hopped: false }
+      this.lobby.belayer = BOT
     }
     this.bump()
   }
@@ -135,12 +146,19 @@ export class Session {
 
   /** Default roles: rotate through players so everyone leads and belays. */
   nextRoles(): { leader: string; belayer: string } {
-    const ps = this.lobby.players.filter((p) => p.energy >= 10 || this.lobby.players.length === 1)
-    const all = ps.length ? ps : this.lobby.players
+    const all = this.lobby.players
     if (all.length === 1 || this.lobby.mode === 'solo') return { leader: all[0].id, belayer: BOT }
-    const prev = this.lobby.leader
-    const i = Math.max(0, all.findIndex((p) => p.id === prev))
-    const leader = prev ? all[(i + 1) % all.length] : all[0]
+    // the next player in turn who still has energy leads
+    const prev = all.findIndex((p) => p.id === this.lobby.leader)
+    let leader = all[0]
+    for (let k = 1; k <= all.length; k++) {
+      const p = all[(prev + k + all.length) % all.length]
+      if (p.energy >= 10) {
+        leader = p
+        break
+      }
+    }
+    // anyone can belay, tired or not
     const li = all.indexOf(leader)
     const belayer = all[(li + 1) % all.length]
     return { leader: leader.id, belayer: belayer.id === leader.id ? BOT : belayer.id }
@@ -167,7 +185,9 @@ export class Session {
     this.lobby.leader = L.id
     this.lobby.belayer = B
     this.lobby.summary = null
-    this.inputs.clear()
+    // presses from before this attempt must not fire again
+    this.world.lastSeq.leader = { ...(this.inputs.get(L.id)?.seq ?? this.world.lastSeq.leader) }
+    if (B !== BOT) this.world.lastSeq.belayer = { ...(this.inputs.get(B)?.seq ?? this.world.lastSeq.belayer) }
     this.bump()
     return true
   }

@@ -64,12 +64,45 @@ describe('session', () => {
     expect(s.lobby.day).toBe(2)
   })
 
-  it('a climber leaving mid-attempt sends everyone back to the crag', () => {
+  it('the bot takes the rope when the belayer leaves mid-climb', () => {
     const s = crew(3)
     s.start(CRAG[0].id, 'a', 'b')
     s.removePlayer('b')
+    expect(s.lobby.phase).toBe('climb')
+    expect(s.lobby.belayer).toBe(BOT)
+    expect(s.world?.bot).toBeTruthy()
+  })
+
+  it('the leader leaving mid-climb sends everyone back to the crag', () => {
+    const s = crew(3)
+    s.start(CRAG[0].id, 'a', 'b')
+    s.removePlayer('a')
     expect(s.lobby.phase).toBe('crag')
     expect(s.world).toBeNull()
     expect(s.start(CRAG[0].id)).toBe(true)
+  })
+
+  it('old presses do not replay at the start of a new attempt', () => {
+    const s = crew(2)
+    s.start(CRAG[0].id, 'a', 'b')
+    const f = s.world!.lastSeq.leader
+    const inp = { ...s.world!.lastSeq }
+    void inp
+    // the leader called Lower! (8) at the end of the last attempt
+    const frame = { hands: [{ down: false, x: 0, y: 0 }, { down: false, x: 0, y: 0 }], hipsIn: false, shake: false, feed: false, take: false, catchHeld: false, soft: false, seq: { ...f, call: 7 }, callId: 8 } as const
+    s.setInput('a', JSON.parse(JSON.stringify(frame)))
+    s.step(1 / 60)
+    finish(s, false)
+    s.start(CRAG[0].id, 'a', 'b')
+    s.setInput('a', JSON.parse(JSON.stringify(frame)))
+    s.step(1 / 60)
+    expect(s.world!.letGo).toBe(false)
+    expect(s.world!.calls.length).toBe(0)
+  })
+
+  it('a tired player can still belay', () => {
+    const s = crew(2)
+    s.lobby.players[1].energy = 5
+    expect(s.nextRoles()).toEqual({ leader: 'a', belayer: 'b' })
   })
 })

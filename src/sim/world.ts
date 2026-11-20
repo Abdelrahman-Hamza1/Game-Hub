@@ -417,6 +417,11 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
   w.highPoint = Math.max(w.highPoint, c.pelvis.y)
   if (c.pelvis.y > 2.0) w.leftGround = true
   if (g > 0 || ground) w.hanging = false
+  // letting go on a tight rope is a rest ("Take!"), not a fall
+  if (!w.fall && g === 0 && !ground && !w.hanging && w.Tharness > 0.25 * c.mass * G && w.slack < 0.15) {
+    w.hanging = true
+    w.weighted = true
+  }
   if (!w.fall && g === 0 && !ground && c.pelvis.y > 1.1 && !w.topped && !w.letGo && !w.hanging) {
     const n = w.rope.path.length
     const last = w.rope.path[n - 2]
@@ -494,7 +499,7 @@ function checkEnd(w: World, dt: number): void {
   void dt
   if (w.end) return
   // back on the ground after leaving it: lowered or down-climbed
-  if (w.leftGround && !w.fall && grips(c) === 0 && c.pelvis.y < 1.05) {
+  if ((w.leftGround || w.lowerRequested) && !w.fall && grips(c) === 0 && c.pelvis.y < 1.05) {
     c.feet[0] = { x: c.pelvis.x - 0.16, y: 0, hold: -2, state: 1 }
     c.feet[1] = { x: c.pelvis.x + 0.16, y: 0, hold: -2, state: 1 }
     endAttempt(w, 'lowered')

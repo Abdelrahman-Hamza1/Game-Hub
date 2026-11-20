@@ -18,8 +18,8 @@ import { LocalInput } from './input/input'
 import { lerpSnap, Net, newRoomCode, type Cmd } from './net/net'
 import { PALETTE, Renderer, type Toast } from './render/renderer'
 import { ANGLE_LABEL, CALLS, GRADES, YDS } from './sim/constants'
-import { CRAG, randomRoute } from './sim/routes'
-import type { Route } from './sim/types'
+import { CRAG, randomRoute, validRoute } from './sim/routes'
+import type { InputFrame, Route } from './sim/types'
 import { emptyInput } from './sim/types'
 import { createWorld, snapshot, stepWorld, type Snap, type World } from './sim/world'
 
@@ -54,6 +54,9 @@ class App {
   loggedSummaries = new Set<string>()
   selectedRoute: string = CRAG[3].id
   partnerName = 'Partner'
+  newGrade = '6a'
+  /** bumps every time a mode starts, so logbook keys never repeat across sessions */
+  nonce = 0
   lastUiKey = ''
   lastLobbyV = -1
   lastLobbyBroadcast = 0
@@ -142,8 +145,10 @@ class App {
     this.leave(false)
     this.roomCode = code
     history.replaceState(null, '', `${baseUrl()}?room=${encodeURIComponent(code)}`)
+    const live = () => this.net === net
     const net = new Net({
       onRole: (isHost) => {
+        if (!live()) return
         if (isHost) {
           const old = this.lobby
           const s = new Session('online', net.selfId)
@@ -153,6 +158,7 @@ class App {
             for (const p of old.players) if (p.id !== net.selfId && net.peers.has(p.id)) s.addPlayer(p)
             for (const r of old.extra) s.addRoute(r)
             s.lobby.day = old.day
+            s.lobby.created = old.created
             s.lobby.history = old.history
             for (const p of s.lobby.players) p.energy = old.players.find((o) => o.id === p.id)?.energy ?? 100
           }
@@ -167,30 +173,40 @@ class App {
         this.enterGame()
       },
       onLobby: (l) => {
+        if (!live()) return
         this.lobby = l
         if (this.screen !== 'game') this.enterGame()
       },
       onSnap: (sn) => {
+        if (!live() || !sn || !sn.c) return
         this.prevSnap = this.snap
         this.prevSnapAt = this.snapAt
         this.snap = sn
         this.snapAt = performance.now()
       },
-      onInput: (peer, f) => this.session?.setInput(peer, f),
-      onCmd: (peer, c) => this.handleCmd(peer, c),
+      onInput: (peer, f) => {
+        if (live() && validFrame(f)) this.session?.setInput(peer, f)
+      },
+      onCmd: (peer, c) => {
+        if (live() && c && typeof c === 'object') this.handleCmd(peer, c)
+      },
       onHello: (peer, h) => {
+        if (!live() || !h) return
         this.session?.addPlayer({ id: peer, name: String(h.name).slice(0, 20) || 'Climber', mass: clampMass(h.mass), tried: (h.tried || []).slice(0, 200) })
       },
       onPeerLeave: (peer) => {
+        if (!live()) return
         const name = this.lobby?.players.find((p) => p.id === peer)?.name
         this.session?.removePlayer(peer)
         if (name) this.toast(`${name} left`, 'info')
       },
       onStatus: (t) => {
+        if (!live()) return
         this.status = t
         this.renderUi(true)
       },
     })
+    net.lobbyNow = () => (this.net === net && this.session ? this.session.lobby : null)
     this.net = net
     this.selfId = net.selfId
     this.screen = 'connecting'
@@ -221,6 +237,11 @@ class App {
     this.screen = 'menu'
     this.modal = null
     this.status = ''
+    this.roleOverride = {}
+    this.seenEvent = 0
+    this.lastSnapT = 0
+    this.seenCalls.clear()
+    this.nonce++
     if (render) {
       history.replaceState(null, '', baseUrl())
       this.roomCode = null
@@ -242,7 +263,7 @@ class App {
         if (s.lobby.phase !== 'climb') s.start(c.routeId, c.leader, c.belayer)
         break
       case 'route':
-        s.addRoute(c.route)
+        if (validRoute(c.route)) s.addRoute(c.route)
         break
       case 'giveup':
         s.giveUp()
@@ -263,6 +284,15 @@ class App {
   // ---------- main loop ----------
 
   frame(t: number): void {
+    requestAnimationFrame((tt) => this.frame(tt))
+    try {
+      this.tick(t)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  tick(t: number): void {
     const dt = Math.min(0.1, (t - this.last) / 1000)
     this.last = t
     const s = this.session
@@ -305,7 +335,6 @@ class App {
       this.onLobbyChange()
     }
     this.draw(dt, !!playing)
-    requestAnimationFrame((tt) => this.frame(tt))
   }
 
   isLocalLeader(): boolean {
@@ -383,6 +412,7 @@ class App {
     for (const e of snap.events) {
       if (e.id <= this.seenEvent) continue
       this.seenEvent = e.id
+      if (snap.t - e.t > 1) continue
       sfx(e.type)
       if (e.type === 'catch' && e.text) this.toast(e.text, e.text.startsWith('Brutal') ? 'bad' : 'info')
       else if (e.type === 'top' && e.text) this.toast(e.text, 'good')
@@ -394,6 +424,7 @@ class App {
       const key = `${c.t}-${c.id}`
       if (this.seenCalls.has(key)) continue
       this.seenCalls.add(key)
+      if (snap.t - c.t > 1) continue
       sayCall(c.id, c.role)
     }
   }
@@ -411,12 +442,12 @@ class App {
     if (l.routeId && l.phase !== 'crag') this.selectedRoute = l.routeId
     if (l.phase === 'climb') {
       const route = findRoute(l, l.routeId)
-      if (route) this.renderer.follow(route, 2, 1, true)
+      if (route) this.renderer.follow(route, this.snap?.c.chest[1] ?? 2, 1, true)
     }
     // log sends and attempts for players on this machine
     const s = l.summary
     if (s && l.phase === 'summary') {
-      const key = `${l.day}-${l.history.length}-${s.routeId}-${s.leader}`
+      const key = `${this.nonce}-${l.created}-${l.day}-${l.history.length}-${s.routeId}-${s.leader}`
       if (!this.loggedSummaries.has(key) && this.localIds.includes(s.leader)) {
         this.loggedSummaries.add(key)
         addLog({
@@ -552,7 +583,7 @@ class App {
       <div class="routes">${CRAG.map(routeCard).join('')}</div>
       ${extra.length ? `<div class="kicker">Shared routes</div><div class="routes">${extra.map(routeCard).join('')}</div>` : ''}
       <div class="row">
-        <select id="f-newgrade">${GRADES.map((g) => opt(g, this.grade(g), g === '6a')).join('')}</select>
+        <select id="f-newgrade">${GRADES.map((g) => opt(g, this.grade(g), g === this.newGrade)).join('')}</select>
         <button class="btn small" data-act="random-route">New random route</button>
         <button class="btn small" data-act="copy-route">Copy route link</button>
         ${!CRAG.some((c) => c.id === sel.id) ? '<button class="btn small" data-act="forget-route">Forget route</button>' : ''}
@@ -572,7 +603,7 @@ class App {
 
   defaultRoles(): { leader: string; belayer: string } {
     const l = this.lobby!
-    const base = this.session ? this.session.nextRoles() : guessRoles(l)
+    const base = this.session ? this.session.nextRoles() : (l.next ?? guessRoles(l))
     const ids = new Set(l.players.map((p) => p.id))
     const leader = this.roleOverride.leader && ids.has(this.roleOverride.leader) ? this.roleOverride.leader : base.leader
     let belayer = this.roleOverride.belayer && (ids.has(this.roleOverride.belayer) || this.roleOverride.belayer === BOT) ? this.roleOverride.belayer : base.belayer
@@ -598,7 +629,7 @@ class App {
     const s = l.summary
     if (!s) return ''
     const title = headline(s)
-    const next = this.session ? this.session.nextRoles() : guessRoles(l)
+    const next = this.session ? this.session.nextRoles() : (l.next ?? guessRoles(l))
     const nextName = l.players.find((p) => p.id === next.leader)?.name ?? ''
     const isPlayer = l.players.some((p) => this.localIds.includes(p.id))
     return `<div class="modal-bg"><div class="modal">
@@ -710,6 +741,9 @@ class App {
         s.autoFeet = t.checked
         this.cmd({ type: 'autofeet', on: t.checked })
         break
+      case 'f-newgrade':
+        this.newGrade = t.value
+        return
       case 'f-leader':
         this.roleOverride.leader = t.value
         this.renderUi(true)
@@ -800,8 +834,7 @@ class App {
       }
       case 'again': {
         const l = this.lobby!
-        const roles = this.session ? this.session.nextRoles() : guessRoles(l)
-        this.cmd({ type: 'start', routeId: l.routeId!, leader: roles.leader, belayer: roles.belayer })
+        this.cmd({ type: 'start', routeId: l.routeId! })
         break
       }
       case 'back':
@@ -843,6 +876,18 @@ class App {
     }
     this.renderUi(true)
   }
+}
+
+function validFrame(f: unknown): f is InputFrame {
+  const x = f as InputFrame
+  return (
+    !!x &&
+    Array.isArray(x.hands) &&
+    x.hands.length === 2 &&
+    x.hands.every((h) => h && Number.isFinite(h.x) && Number.isFinite(h.y)) &&
+    !!x.seq &&
+    typeof x.seq === 'object'
+  )
 }
 
 function clampMass(m: number): number {

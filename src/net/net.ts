@@ -41,6 +41,11 @@ export class Net {
   hostId: string | null = null
   latency: number | null = null
   peers = new Set<string>()
+  /** set by leave(): a closed Net never fires events again */
+  closed = false
+  /** the host's current lobby, so it can greet new peers straight away */
+  lobbyNow: () => Lobby | null = () => null
+  private hostCreated = Infinity
   private decided = false
   private timers: number[] = []
   private send!: {
@@ -70,35 +75,47 @@ export class Net {
     }
 
     lobbyA.onMessage = (data, { peerId }) => {
+      if (this.closed) return
       const lobby = data as Lobby
+      if (!lobby || lobby.hostId !== peerId || !Array.isArray(lobby.players)) return
+      const older = (a: number, aid: string, b: number, bid: string) => a < b || (a === b && aid < bid)
       if (this.isHost) {
-        // two hosts: the lower id keeps hosting
-        if (lobby.hostId === peerId && peerId < this.selfId) this.becomeGuest(peerId)
-        else return
-      } else if (this.hostId !== lobby.hostId) {
-        this.becomeGuest(lobby.hostId)
+        // two hosts met: the older session keeps the room
+        const mine = this.lobbyNow()
+        if (mine && older(mine.created, this.selfId, lobby.created, peerId)) return
+        this.becomeGuest(peerId, lobby.created)
+      } else if (this.hostId !== peerId) {
+        // follow a different host only if ours is gone or theirs is older
+        if (this.hostId && this.peers.has(this.hostId) && !older(lobby.created, peerId, this.hostCreated, this.hostId)) return
+        this.becomeGuest(peerId, lobby.created)
       }
       this.decided = true
       this.ev.onLobby(lobby, peerId)
       if (!lobby.players.some((p) => p.id === this.selfId)) this.send.hello(hello())
     }
     snapA.onMessage = (data, { peerId }) => {
+      if (this.closed) return
       if (!this.isHost && peerId === this.hostId) this.ev.onSnap(data as Snap)
     }
     inpA.onMessage = (data, { peerId }) => {
-      if (this.isHost) this.ev.onInput(peerId, data as InputFrame)
+      if (!this.closed && this.isHost) this.ev.onInput(peerId, data as InputFrame)
     }
     cmdA.onMessage = (data, { peerId }) => {
-      if (this.isHost) this.ev.onCmd(peerId, data as Cmd)
+      if (!this.closed && this.isHost) this.ev.onCmd(peerId, data as Cmd)
     }
     helloA.onMessage = (data, { peerId }) => {
-      if (this.isHost) this.ev.onHello(peerId, data as Hello)
+      if (!this.closed && this.isHost) this.ev.onHello(peerId, data as Hello)
     }
     room.onPeerJoin = (peerId) => {
+      if (this.closed) return
       this.peers.add(peerId)
+      // greet newcomers right away so they don't think the room is empty
+      const l = this.isHost ? this.lobbyNow() : null
+      if (l) this.send.lobby(l, peerId)
       this.ev.onStatus(`${this.peers.size + 1} in the room`)
     }
     room.onPeerLeave = (peerId) => {
+      if (this.closed) return
       this.peers.delete(peerId)
       this.ev.onPeerLeave(peerId)
       this.ev.onStatus(`${this.peers.size + 1} in the room`)
@@ -106,15 +123,24 @@ export class Net {
         // the host left: the lowest remaining id takes over
         const ids = [...this.peers, this.selfId].sort()
         if (ids[0] === this.selfId) this.becomeHost()
-        else this.hostId = null
+        else {
+          this.hostId = null
+          this.decided = false
+          // if the new host never shows up, take over
+          this.timers.push(
+            window.setTimeout(() => {
+              if (!this.closed && !this.decided) this.becomeHost()
+            }, 5000),
+          )
+        }
       }
     }
     this.ev.onStatus('Looking for friends in the room…')
     // nobody answered: this browser hosts
     this.timers.push(
       window.setTimeout(() => {
-        if (!this.decided) this.becomeHost()
-      }, 3500),
+        if (!this.closed && !this.decided) this.becomeHost()
+      }, 4000),
     )
     // measure latency to the host for fair catches
     this.timers.push(
@@ -130,15 +156,17 @@ export class Net {
   }
 
   private becomeHost(): void {
+    if (this.closed) return
     this.decided = true
     this.isHost = true
     this.hostId = this.selfId
     this.ev.onRole(true, this.selfId)
   }
 
-  private becomeGuest(hostId: string): void {
+  private becomeGuest(hostId: string, created: number): void {
     this.isHost = false
     this.hostId = hostId
+    this.hostCreated = created
     this.ev.onRole(false, hostId)
   }
 
@@ -156,6 +184,7 @@ export class Net {
   }
 
   leave(): void {
+    this.closed = true
     this.timers.forEach((t) => {
       clearTimeout(t)
       clearInterval(t)
