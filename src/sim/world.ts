@@ -5,12 +5,12 @@ import { BODY, CALL_BY_ID, DEVICE, G } from './constants'
 import { controlClimber, createClimber, grips, onGround, settleFreeLimbs, substepClimber } from './climber'
 import { clipDraw, createRope, DEVICE as DEV, HARNESS, ropeOut, stepRope, totalSlack, unclipDraw } from './rope'
 import type { Belayer, CallEvent, CatchRating, Climber, Draw, FallRecord, InputFrame, RopeState, Route } from './types'
-import { emptyInput } from './types'
+import { emptyInput, ownHold } from './types'
 
 export const SUBSTEPS = 8
 /** where the belayer stands: a step left of the start holds */
 export function belayerHome(route: Route): number {
-  const starts = route.holds.filter((h) => h.role === 'start')
+  const starts = route.holds.filter((h) => h.role === 'start' && ownHold(route, h))
   const x = starts.length ? Math.min(...starts.map((h) => h.x)) : route.width / 2
   return x - 1.0
 }
@@ -63,6 +63,8 @@ export interface AttemptEnd {
   falls: number
   /** seconds from tie-in to clipping the anchor, null if not topped */
   time: number | null
+  /** used a hold of another colour */
+  offRoute: boolean
 }
 
 export interface World {
@@ -101,6 +103,8 @@ export interface World {
   ouchT: number
   /** world time the anchor was clipped (-1 until then) */
   topT: number
+  /** a hand used a hold of another colour: still climbable, but not a send */
+  offRoute: boolean
 }
 
 interface BotState {
@@ -167,6 +171,7 @@ export function createWorld(route: Route, opt: WorldOptions): World {
     belay: emptyBelayStats(),
     ouchT: -1,
     topT: -1,
+    offRoute: false,
   }
   w.rope = createRope(devicePos(belayer), [climber.pelvis.x, climber.pelvis.y], 1.0)
   return w
@@ -276,7 +281,15 @@ export function stepWorld(w: World, dt: number, leaderIn: InputFrame, belayIn: I
       autoFeet: w.autoFeet && !w.letGo,
       Tharness: w.Tharness,
       falling,
-      ev: { emit: (t, x) => emit(w, t, x) },
+      ev: {
+        emit: (t, x) => {
+          if (t === 'offroute') {
+            const first = !w.offRoute
+            w.offRoute = true
+            emit(w, t, first ? `Off route! That one's ${x?.toLowerCase()}: not a send now` : `Off route: ${x?.toLowerCase()}`)
+          } else emit(w, t, x)
+        },
+      },
     },
     dt,
   )
@@ -449,8 +462,8 @@ function updateClip(w: World, inp: InputFrame, dt: number): void {
     if (d.anchor) {
       w.topped = true
       w.topT = w.t
-      w.sent = !w.weighted && w.falls.length === 0
-      emit(w, 'top', w.sent ? 'Sent!' : 'Top! Clean it next time')
+      w.sent = !w.weighted && w.falls.length === 0 && !w.offRoute
+      emit(w, 'top', w.sent ? 'Sent!' : w.offRoute ? 'Top! But you went off route' : 'Top! Clean it next time')
     }
   }
 }
@@ -589,6 +602,7 @@ export function endAttempt(w: World, reason: AttemptEnd['reason']): void {
     highPoint: w.topped ? w.route.anchor[1] : Math.max(0, w.highPoint),
     falls: w.falls.length,
     time: w.topT >= 0 ? Math.round(w.topT * 10) / 10 : null,
+    offRoute: w.offRoute,
   }
   emit(w, 'end')
 }
@@ -687,6 +701,7 @@ export interface Snap {
   ouch: number
   /** world time the anchor was clipped, or -1 */
   topT: number
+  offRoute: boolean
 }
 
 export function snapshot(w: World): Snap {
@@ -739,6 +754,7 @@ export function snapshot(w: World): Snap {
     end: w.end,
     ouch: w.ouchT >= 0 ? r2(w.t - w.ouchT) : -1,
     topT: r2(w.topT),
+    offRoute: w.offRoute,
   }
 }
 

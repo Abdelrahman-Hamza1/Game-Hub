@@ -1,7 +1,7 @@
 // A scripted leader for tests: reaches the lower hand to the best hold above and clips when it can.
 
 import { BODY } from './constants'
-import { emptyInput, type InputFrame } from './types'
+import { emptyInput, ownHold, type InputFrame } from './types'
 import { stepWorld, type World } from './world'
 
 /** A simple scripted leader: moves the lower hand to the best reachable hold above, clips when it can. */
@@ -26,7 +26,7 @@ export function scriptedClimb(w: World, seconds: number, onFrame?: () => void, s
       let best = -1
       let bestY = -1
       route.holds.forEach((h, i) => {
-        if (h.type === 'foot') return
+        if (h.type === 'foot' || !ownHold(route, h)) return
         if (h.y <= Math.max(hs[hand].y, other.y - 0.3) + 0.05) return
         const lockY = other.state === 1 ? other.y - 0.2 : c.chest.y
         const d = Math.hypot(h.x - other.x, h.y - lockY)

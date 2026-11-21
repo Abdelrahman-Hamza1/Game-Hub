@@ -10,6 +10,21 @@ export interface Hold {
   y: number
   rot: number
   role?: 'start' | 'top'
+  /** on a gym wall: which colour route this hold belongs to */
+  r?: number
+}
+
+/** Where a route sits on a gym wall shared with other colours. */
+export interface RouteWall {
+  id: string
+  name: string
+  /** this route's index among the wall's routes; holds with another `r` are off route */
+  own: number
+  /** colour names of every route on the wall, by index */
+  colours: string[]
+  grades: string[]
+  /** the other routes' bolts, drawn as hanging quickdraws */
+  bolts: [number, number][]
 }
 
 export interface Route {
@@ -27,6 +42,13 @@ export interface Route {
   anchor: [number, number]
   fa?: { by: string; date: string }
   seed?: number
+  /** set when the route is one colour on a shared gym wall */
+  wall?: RouteWall
+}
+
+/** Is this hold part of the route (always true off a gym wall)? */
+export function ownHold(route: Route, h: Hold): boolean {
+  return !route.wall || h.r === undefined || h.r === route.wall.own
 }
 
 export interface Pt {

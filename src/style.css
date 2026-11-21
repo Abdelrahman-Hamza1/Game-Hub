@@ -934,3 +934,59 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* gym walls in the crag list */
+.wall-block {
+  display: grid;
+  gap: 6px;
+}
+.wall-block + .wall-block,
+.sect {
+  margin-top: 10px;
+}
+.wall-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 3px;
+}
+.wall-head b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 22px;
+  text-transform: uppercase;
+}
+.hold-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--band);
+  border: 1.5px solid rgba(0, 0, 0, 0.45);
+  margin-right: 6px;
+  vertical-align: 0;
+}
+.route.light-tape .g {
+  color: var(--ink);
+  text-shadow: none;
+}
+.poster h3 small {
+  display: block;
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: none;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.poster-rule {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.poster.light-tape .poster-grade {
+  color: var(--ink);
+  text-shadow: none;
+}

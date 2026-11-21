@@ -16,6 +16,8 @@ export interface CoachView {
   autoFeet: boolean
   /** seconds since this attempt started on this screen */
   age: number
+  /** the route's colour on a shared gym wall */
+  colour?: string | null
 }
 
 /** The tip for this moment, or null. `done` holds retired tip ids. */
@@ -38,6 +40,11 @@ export function coachTip(v: CoachView, done: ReadonlySet<string>): Tip | null {
           id: 'grab',
           when: true,
           text: 'Hold the left mouse button, drag the hand onto a hold above, let go to grab. Right button is the right hand.',
+        },
+        {
+          id: 'colour',
+          when: !!v.colour && s.high < 5 && !c.clip,
+          text: `Stay on ${v.colour?.toLowerCase()} holds. Any colour can be grabbed, but then the go isn't a send. Your feet keep to ${v.colour?.toLowerCase()} by themselves.`,
         },
         {
           id: 'feet',

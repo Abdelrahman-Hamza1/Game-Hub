@@ -66,6 +66,10 @@ export function sfx(type: string): void {
     case 'step':
       noise(0.04, 0.12, 500)
       break
+    case 'offroute':
+      tone(330, 0.12, 'triangle', 0.08)
+      setTimeout(() => tone(247, 0.16, 'triangle', 0.08), 110)
+      break
     case 'clip':
       tone(2200, 0.05, 'square', 0.08)
       setTimeout(() => tone(1700, 0.06, 'square', 0.07), 60)

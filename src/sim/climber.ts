@@ -6,6 +6,7 @@
 
 import { ANGLE_MULT, BODY, G, HOLD_COST } from './constants'
 import type { Climber, Hold, InputFrame, Limb, Pt, Route } from './types'
+import { ownHold } from './types'
 
 export interface ClimberEvents {
   emit: (type: string, text?: string) => void
@@ -14,7 +15,7 @@ export interface ClimberEvents {
 const pt = (x: number, y: number): Pt => ({ x, y, px: x, py: y })
 
 export function createClimber(route: Route, mass: number, tired: number): Climber {
-  const starts = route.holds.map((h, i) => ({ h, i })).filter((o) => o.h.role === 'start')
+  const starts = route.holds.map((h, i) => ({ h, i })).filter((o) => o.h.role === 'start' && ownHold(route, o.h))
   const L = starts[0] ?? { h: route.holds[0], i: 0 }
   const R = starts[1] ?? L
   const cx = (L.h.x + R.h.x) / 2
@@ -90,7 +91,8 @@ export function footCandidate(c: Climber, route: Route, side: number): number {
       best = idx
     }
   }
-  route.holds.forEach((h, i) => consider(i, h.x, h.y))
+  // feet stay on the route's own colour
+  route.holds.forEach((h, i) => ownHold(route, h) && consider(i, h.x, h.y))
   if (p.y < 1.3) consider(-2, p.x + side * 0.16, 0)
   return best
 }
@@ -100,7 +102,8 @@ function nearestHandHold(c: Climber, route: Route, x: number, y: number): number
   let bd = BODY.snap
   route.holds.forEach((h: Hold, i) => {
     if (h.type === 'foot') return
-    const d = Math.hypot(h.x - x, h.y - y)
+    // on a gym wall a hold of your own colour wins a close call against another colour
+    const d = Math.hypot(h.x - x, h.y - y) - (ownHold(route, h) ? 0.06 : 0)
     if (d < bd) {
       bd = d
       best = i
@@ -168,8 +171,10 @@ export function controlClimber(c: Climber, inp: InputFrame, ctx: ControlCtx, dt:
         // the hold may sit a little past full reach: start with that much give and pull in
         hand.ext = Math.max(0, Math.hypot(hand.x - c.chest.x, hand.y - c.chest.y) - BODY.reach)
         c.popT[i] = 0
-        ctx.ev.emit('grab', route.holds[idx].type)
-        if (route.holds[idx].role === 'top') ctx.ev.emit('tophold')
+        const held = route.holds[idx]
+        ctx.ev.emit('grab', held.type)
+        if (!ownHold(route, held)) ctx.ev.emit('offroute', `${route.wall!.colours[held.r!]}`)
+        else if (held.role === 'top') ctx.ev.emit('tophold')
       } else {
         hand.state = 0
         hand.hold = -1

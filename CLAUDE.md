@@ -21,7 +21,7 @@ Every push to `main` runs `.github/workflows/deploy.yml`: test, build, publish `
   - `rope.ts`: rope as sections between anchors; quickdraws are pulleys with capstan friction; belay device slip
   - `climber.ts`: chest + pelvis physics, limb constraints, muscles toward a pose, pump, feet, chalk
   - `world.ts`: one attempt: clipping, falls, bot belayer, attempt end, `snapshot()` for network/render
-  - `routes.ts`: grade-recipe route generator and the home crag
+  - `routes.ts`: grade-recipe route generator; gym walls (`generateWall`: several colour routes interleaved on one face, holds tagged with `r`), `wallRoute` turns one colour into a climbable `Route`; the home gym is `CRAG_WALLS`
   - `script.ts`: a scripted leader used by tests
 - `src/game/`: session (players, roles, energy, send styles, belay stars, day board, day awards), storage (settings/logbook), share codes, coach tips, ghost (records sends from snapshots, replays the fastest per route)
 - `src/net/net.ts`: Trystero (Nostr) rooms; first in hosts; host sends snapshots at 30 Hz, guests send inputs
@@ -40,4 +40,5 @@ To test online play, open two browser profiles on the same `?room=` link.
 - Everything in `Snap` and `Lobby` must stay plain JSON (it goes over the network).
 - Discrete inputs are counters in `InputFrame.seq`, so dropped packets never lose a press.
 - The climber solver turns constraint corrections into velocity. Never snap a held body: give new constraints slack that shrinks (see `Limb.ext`), or the body teleports.
+- Gym walls: a wall route's `holds` are all the wall's holds. Use `ownHold(route, h)` for anything that should only use the route's colour (starts, feet, scripted climbs); hands may grab any colour, which sets `offRoute` and voids the send.
 - Drawing: the host interpolates between 60 Hz sim steps; guests play a snapshot buffer ~80 ms behind the host clock.

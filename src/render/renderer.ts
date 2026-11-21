@@ -8,7 +8,8 @@ import type { Snap } from '../sim/world'
 import { belayerHome } from '../sim/world'
 import type { Settings } from '../game/storage'
 import { matTexture, panelTexture, PANEL_M, WALLS, type WallColor } from './textures'
-import { rng } from '../sim/routes'
+import { GYM_COLOURS, rng } from '../sim/routes'
+import { ownHold } from '../sim/types'
 import type { GhostPose } from '../game/ghost'
 import { fmtTime } from '../game/session'
 
@@ -30,6 +31,17 @@ export function routeTape(grade: string): string {
   if (i < at('7b')) return '#E0344A'
   return '#9B6BD6'
 }
+/** The colour a route's holds are drawn in: its own colour on a gym wall, else its grade's tape. */
+export function routeHex(route: Route): string {
+  const name = route.wall?.colours[route.wall.own]
+  return (name && GYM_COLOURS[name]) || routeTape(route.grade)
+}
+
+function holdHex(route: Route, h: Hold): string {
+  if (route.wall && h.r !== undefined) return GYM_COLOURS[route.wall.colours[h.r]] ?? '#888'
+  return routeTape(route.grade)
+}
+
 const DECOY_COLORS = ['#3FA34D', '#F2B705', '#1FA6B4', '#FF6B1A', '#E0344A', '#9B6BD6', '#F4F4F2', '#E85D9E']
 
 function shade(hex: string, k: number): string {
@@ -131,12 +143,23 @@ export class Renderer {
   /** Camera follows the leader and keeps the ground in view when low. */
   follow(route: Route, chestY: number, dt: number, snapTo = false): void {
     // a side panel covering the left of the screen pushes the route right
-    const tx = route.width / 2 - 0.5 - this.padLeft / 2 / this.scale
+    const tx = this.lineX(route) - this.padLeft / 2 / this.scale
     const half = this.H / 2 / this.scale
     const ty = Math.max(half - 0.9, Math.min(chestY + 0.6, route.height + 1 - half))
     const k = snapTo ? 1 : Math.min(1, dt * 4)
     this.camX += (tx - this.camX) * k
     this.camY += (ty - this.camY) * k
+  }
+
+  private lineCache: { id: string; x: number } | null = null
+  /** the middle of the route's own line, to centre the camera on */
+  private lineX(route: Route): number {
+    if (!route.wall) return route.width / 2 - 0.5
+    if (this.lineCache?.id === route.id) return this.lineCache.x
+    const own = route.holds.filter((h) => ownHold(route, h) && h.type !== 'foot')
+    const x = own.length ? own.reduce((a, h) => a + h.x, 0) / own.length : route.anchor[0]
+    this.lineCache = { id: route.id, x }
+    return x
   }
 
   /** shake the camera, in pixels; big catches and ground falls thump */
@@ -352,7 +375,7 @@ export class Renderer {
   }
 
   /** a bolt-on hold: shaded plastic in the route's colour, shape by type */
-  private drawHold(h: Hold, highlight: string | null, col: string, alpha = 1, label = true): void {
+  private drawHold(h: Hold, highlight: string | null, col: string, alpha = 1, label?: string): void {
     const c = this.c
     const s = this.scale * 1.35
     const x = this.sx(h.x), y = this.sy(h.y)
@@ -403,7 +426,7 @@ export class Renderer {
     c.restore()
     if (h.role && alpha === 1) {
       // start and top tape, in the route's colour
-      const text = label ? (h.role === 'top' ? 'TOP' : 'START') : ''
+      const text = label ?? (h.role === 'top' ? 'TOP' : 'START')
       c.font = `700 9px ${MONO}`
       const w = text ? c.measureText(text).width + 10 : 16
       const ty = y + 0.075 * s
@@ -459,7 +482,8 @@ export class Renderer {
       let best = -1, bd = BODY.snap
       route.holds.forEach((o, i) => {
         if (o.type === 'foot') return
-        const d = Math.hypot(o.x - h[0], o.y - h[1])
+        // same preference as the sim: your own colour wins a close call
+        const d = Math.hypot(o.x - h[0], o.y - h[1]) - (ownHold(route, o) ? 0.06 : 0)
         if (d < bd) {
           bd = d
           best = i
@@ -470,19 +494,32 @@ export class Renderer {
     const top = this.camY + this.H / 2 / this.scale + 0.5
     const bottom = this.camY - this.H / 2 / this.scale - 0.5
     const decoyAlpha = WALLS[this.wall].light ? 0.4 : 0.3
-    for (const h of this.decoyHolds(route)) {
-      if (h.y < bottom || h.y > top) continue
-      this.drawHold(h, null, h.col, decoyAlpha)
+    if (!route.wall) {
+      // a lone route gets faded decoys so the wall still looks like a gym
+      for (const h of this.decoyHolds(route)) {
+        if (h.y < bottom || h.y > top) continue
+        this.drawHold(h, null, h.col, decoyAlpha)
+      }
     }
-    const col = routeTape(route.grade)
-    let startLabel = false
-    route.holds.forEach((h, i) => {
-      if (h.y < bottom || h.y > top) return
-      // the two start holds share one START label
-      const label = h.role !== 'start' || !startLabel
-      if (h.role === 'start') startLabel = true
-      this.drawHold(h, targets.has(i) ? '#FFFFFF' : null, col, 1, label)
-    })
+    const fade = route.wall && v.settings.fadeOthers ? decoyAlpha : 1
+    const labelled = new Set<string>()
+    // other colours first, so your own holds sit on top
+    const order = route.holds.map((_, i) => i).sort((a, b) => Number(ownHold(route, route.holds[a])) - Number(ownHold(route, route.holds[b])))
+    for (const i of order) {
+      const h = route.holds[i]
+      if (h.y < bottom || h.y > top) continue
+      const own = ownHold(route, h)
+      // one tape label per start: START on yours, the grade on the others; TOP only on yours
+      let label: string | undefined
+      if (h.role) {
+        const key = `${h.r ?? -1}-${h.role}`
+        const first = !labelled.has(key)
+        labelled.add(key)
+        label = !first ? '' : own ? (h.role === 'top' ? 'TOP' : 'START') : h.role === 'start' && route.wall && h.r !== undefined ? route.wall.grades[h.r] : ''
+      }
+      const ring = targets.has(i) ? (own ? '#FFFFFF' : '#FF8A95') : null
+      this.drawHold(h, ring, holdHex(route, h), own ? 1 : fade, label)
+    }
     // foot hints for the local leader
     if (v.localLeader) {
       const c = this.c
@@ -506,6 +543,31 @@ export class Renderer {
     const c = this.c
     const s = this.scale * 1.5
     const { route, snap } = v
+    // the other colours' quickdraws hang on the wall too
+    if (route.wall) {
+      c.save()
+      c.globalAlpha = v.settings.fadeOthers ? 0.45 : 0.85
+      for (const [bx, by] of route.wall.bolts) {
+        const x = this.sx(bx), y = this.sy(by)
+        if (y < -40 || y > this.H + 40) continue
+        c.fillStyle = '#8A9096'
+        c.beginPath()
+        c.arc(x, y, Math.max(3, 0.025 * s), 0, Math.PI * 2)
+        c.fill()
+        c.strokeStyle = '#5C6168'
+        c.lineWidth = 1.6
+        c.beginPath()
+        c.ellipse(x, y + 0.04 * s, 0.018 * s, 0.035 * s, 0, 0, Math.PI * 2)
+        c.stroke()
+        c.strokeStyle = '#9AA0A6'
+        c.lineWidth = Math.max(3, 0.03 * s)
+        c.beginPath()
+        c.moveTo(x, y + 0.075 * s)
+        c.lineTo(x, y + 0.14 * s)
+        c.stroke()
+      }
+      c.restore()
+    }
     route.bolts.forEach(([bx, by], i) => {
       const [clipped, back] = snap.draws[i] ?? [0, 0]
       const x = this.sx(bx), y = this.sy(by)
@@ -1077,7 +1139,8 @@ export class Renderer {
     const { route, snap } = v
     const yds = v.settings.grades === 'yds'
     const grade = yds ? YDS[route.grade] ?? route.grade : route.grade
-    const tape = routeTape(route.grade)
+    const tape = routeHex(route)
+    const colour = route.wall?.colours[route.wall.own]
     // route card, top left
     this.panel(14, 14, 256, 74, tape)
     c.fillStyle = HUD.text
@@ -1085,14 +1148,16 @@ export class Renderer {
     c.fillText(route.name.toUpperCase(), 32, 42)
     c.font = `600 12px ${BODY_FONT}`
     c.fillStyle = HUD.muted
-    c.fillText(`${grade} · ${ANGLE_LABEL[route.angle]}`, 32, 60)
+    c.fillText(colour ? `${colour} · ${grade} · ${route.wall!.name}` : `${grade} · ${ANGLE_LABEL[route.angle]}`, 32, 60)
     const hp = snap.topped ? route.anchor[1] : Math.max(0, snap.high)
     c.font = `600 11px ${MONO}`
     c.fillText(`high ${hp.toFixed(1)} / ${route.anchor[1].toFixed(0)} m · falls ${snap.falls}`, 32, 77)
-    if (snap.weighted && !snap.topped) {
+    if ((snap.weighted || snap.offRoute) && !snap.topped) {
       c.font = `700 11px ${BODY_FONT}`
       c.fillStyle = HUD.bad
-      c.fillText('not a send', 196, 60)
+      c.textAlign = 'right'
+      c.fillText(snap.offRoute ? 'OFF ROUTE' : 'not a send', 260, 42)
+      c.textAlign = 'left'
     }
 
     // leader panel, bottom left

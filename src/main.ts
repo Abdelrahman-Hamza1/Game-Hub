@@ -2,7 +2,7 @@ import './style.css'
 import { sayCall, setAudio, sfx, unlockAudio } from './audio'
 import { BOT, crewBoard, dayAwards, findRoute, fmtTime, Session, type Lobby, type Summary } from './game/session'
 import { GhostRecorder, ghostPose, loadGhost, offerGhost, type Ghost } from './game/ghost'
-import { decodeRoute, routeLink, baseUrl } from './game/share'
+import { decodeRoute, decodeWall, routeLink, wallLink, baseUrl } from './game/share'
 import { coachTip, LEARNED_BY, SHOW_FOR } from './game/coach'
 import {
   addLog,
@@ -10,6 +10,9 @@ import {
   loadLog,
   loadSettings,
   loadSharedRoutes,
+  loadSharedWalls,
+  removeSharedWall,
+  saveSharedWall,
   removeSharedRoute,
   saveSettings,
   saveSharedRoute,
@@ -18,10 +21,10 @@ import {
 } from './game/storage'
 import { LocalInput } from './input/input'
 import { lerpSnap, Net, newRoomCode, type Cmd } from './net/net'
-import { PALETTE, Renderer, routeTape, type Toast } from './render/renderer'
+import { PALETTE, Renderer, routeHex, type Toast } from './render/renderer'
 import { WALLS, type WallColor } from './render/textures'
 import { ANGLE_LABEL, CALLS, GRADES, YDS } from './sim/constants'
-import { CRAG, randomRoute, validRoute } from './sim/routes'
+import { CRAG, CRAG_WALLS, randomWall, validRoute, validWall, wallRoute, wallRoutes, type Wall } from './sim/routes'
 import type { InputFrame, Route } from './sim/types'
 import { emptyInput } from './sim/types'
 import { createWorld, snapshot, stepWorld, type Snap, type World } from './sim/world'
@@ -76,6 +79,7 @@ class App {
   previewRoute: Route | null = null
   previewPan = 0
   pendingRoute: Route | null = null
+  pendingWall: Wall | null = null
   /** ghost beta: this attempt being recorded, and the ghost being raced */
   recorder = new GhostRecorder()
   ghost: Ghost | null = null
@@ -114,12 +118,23 @@ class App {
         this.toast(`Route added: ${r.name} (${r.grade})`, 'good')
       } else this.toast('That route link is broken', 'bad')
     }
+    const wcode = q.get('wall')
+    if (wcode) {
+      const w = await decodeWall(wcode)
+      if (w) {
+        saveSharedWall(w)
+        this.pendingWall = w
+        const k = Math.max(0, Math.min(w.routes.length - 1, Number(q.get('pick')) || 0))
+        this.selectedRoute = wallRoute(w, k).id
+        this.toast(`Wall added: ${w.name}`, 'good')
+      } else this.toast('That wall link is broken', 'bad')
+    }
     const room = q.get('room')
     if (room) {
       this.roomCode = room.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24)
       if (this.settings.name) this.startOnline(this.roomCode)
     }
-    if (code || room) history.replaceState(null, '', baseUrl() + (room && !code ? `?room=${encodeURIComponent(room)}` : ''))
+    if (code || wcode || room) history.replaceState(null, '', baseUrl() + (room && !code && !wcode ? `?room=${encodeURIComponent(room)}` : ''))
     this.renderUi(true)
   }
 
@@ -132,6 +147,7 @@ class App {
 
   private seedRoutes(s: Session): void {
     for (const r of loadSharedRoutes()) s.addRoute(r)
+    for (const w of loadSharedWalls().slice(0, 4).reverse()) s.addWall(w)
     s.setAutoFeet(this.settings.autoFeet)
   }
 
@@ -175,6 +191,7 @@ class App {
             // host migration: keep the day going for everyone still here
             for (const p of old.players) if (p.id !== net.selfId && net.peers.has(p.id)) s.addPlayer(p)
             for (const r of old.extra) s.addRoute(r)
+            for (const w of old.walls ?? []) s.addWall(w)
             s.lobby.day = old.day
             s.lobby.created = old.created
             s.lobby.history = old.history
@@ -253,6 +270,10 @@ class App {
       this.cmd({ type: 'route', route: this.pendingRoute })
       this.pendingRoute = null
     }
+    if (this.pendingWall) {
+      this.cmd({ type: 'wall', wall: this.pendingWall })
+      this.pendingWall = null
+    }
     this.renderUi(true)
   }
 
@@ -295,6 +316,9 @@ class App {
         break
       case 'route':
         if (validRoute(c.route)) s.addRoute(c.route)
+        break
+      case 'wall':
+        if (validWall(c.wall)) s.addWall(c.wall)
         break
       case 'giveup':
         s.giveUp()
@@ -408,7 +432,7 @@ class App {
     }
     if (!route || !snap) {
       // backdrop: the selected route with a climber waiting at the base
-      const want = this.screen === 'game' && lobby ? findRoute(lobby, this.selectedRoute) ?? CRAG[3] : findRoute({ extra: loadSharedRoutes() }, this.selectedRoute) ?? CRAG[3]
+      const want = this.screen === 'game' && lobby ? findRoute(lobby, this.selectedRoute) ?? CRAG[3] : findRoute({ extra: this.pendingRoute ? [this.pendingRoute] : [], walls: this.pendingWall ? [this.pendingWall] : [] }, this.selectedRoute) ?? CRAG[3]
       if (this.previewRoute?.id !== want.id) {
         this.preview = createWorld(want, { leaderMass: 70, belayerMass: 70, tired: 0, autoFeet: false, bot: true })
         this.previewRoute = want
@@ -476,7 +500,8 @@ class App {
       if (e.type === 'ground') this.renderer.kick(18)
       if (e.type === 'catch' && e.text)
         this.toast(e.text, /^(Late|Missed)|brutal/.test(e.text) ? 'bad' : e.text.startsWith('Perfect') ? 'good' : 'info')
-      else if (e.type === 'top' && e.text) this.toast(e.text, 'good')
+      else if (e.type === 'top' && e.text) this.toast(e.text, this.snap?.offRoute ? 'bad' : 'good')
+      else if (e.type === 'offroute' && e.text) this.toast(e.text, 'bad')
       else if ((e.type === 'pop' || e.type === 'clipfail' || e.type === 'ground' || e.type === 'unclip') && e.text) this.toast(e.text, 'bad')
       else if (e.type === 'clip' && e.text) this.toast(e.text, e.text.startsWith('Back') ? 'bad' : 'good')
       else if (e.type === 'hint' && e.text && this.isLocalLeader()) this.toast(e.text, 'info')
@@ -502,7 +527,9 @@ class App {
     if (!this.settings.coach || !l || l.phase !== 'climb' || this.modal) return null
     const leader = this.isLocalLeader(), belayer = this.isLocalBelayer()
     // two people on one keyboard: coach the climber, the belay panel prompts the belayer
-    const tip = coachTip({ snap, leader, belayer: belayer && !leader, autoFeet: l.autoFeet, age: snap.t }, new Set(this.settings.coachDone))
+    const route = findRoute(l, l.routeId)
+    const colour = route?.wall ? route.wall.colours[route.wall.own] : null
+    const tip = coachTip({ snap, leader, belayer: belayer && !leader, autoFeet: l.autoFeet, age: snap.t, colour }, new Set(this.settings.coachDone))
     if (!tip) return null
     const shown = (this.coachShown[tip.id] = (this.coachShown[tip.id] ?? 0) + dt)
     if (shown > SHOW_FOR) this.retireTip(tip.id)
@@ -553,7 +580,11 @@ class App {
           falls: s.falls,
         })
         const r = findRoute(l, s.routeId)
-        if (r && !CRAG.some((c) => c.id === r.id)) saveSharedRoute(r)
+        if (r && !CRAG.some((c) => c.id === r.id)) {
+          const wall = r.wall && l.walls?.find((w) => w.id === r.wall!.id)
+          if (wall) saveSharedWall(wall)
+          else if (!r.wall) saveSharedRoute(r)
+        }
       }
     }
     this.renderUi(true)
@@ -661,12 +692,18 @@ class App {
     const routeCard = (r: Route) => {
       const tick = bestTick(r.id, this.me().name)
       const g = loadGhost(r.id)
-      return `<button class="route ${r.id === sel.id ? 'on' : ''}" data-route="${esc(r.id)}" style="--band:${gradeBand(r.grade)}">
+      const colour = r.wall ? r.wall.colours[r.wall.own] : null
+      const hex = routeHex(r)
+      return `<button class="route ${r.id === sel.id ? 'on' : ''} ${colour === 'White' || colour === 'Yellow' ? 'light-tape' : ''}" data-route="${esc(r.id)}" style="--band:${hex}">
         <span class="g">${esc(this.grade(r.grade))}</span>
-        <span><span class="n">${esc(r.name)}</span><br><span class="m">${esc(ANGLE_LABEL[r.angle])} · ${Math.round(r.anchor[1])} m · ${r.bolts.length} bolts${g ? ` · ⏱ ${fmtTime(g.time)}` : ''}</span></span>
+        <span><span class="n">${colour ? `<i class="hold-dot"></i>${esc(colour)} · ` : ''}${esc(r.name)}</span><br><span class="m">${r.wall ? '' : `${esc(ANGLE_LABEL[r.angle])} · `}${Math.round(r.anchor[1])} m · ${r.bolts.length} bolts${g ? ` · ⏱ ${fmtTime(g.time)}` : ''}</span></span>
         ${tick ? `<span class="tick ${tick === 'tried' ? 'tried' : ''}">${tick}</span>` : '<span></span>'}
       </button>`
     }
+    const wallBlock = (w: Wall, shared: boolean) => `<div class="wall-block">
+        <div class="wall-head"><b>${esc(w.name)}</b><span class="kicker">${esc(ANGLE_LABEL[w.angle])} · ${w.routes.length} colours${shared && w.routes[0]?.fa ? ` · set by ${esc(w.routes[0].fa.by)}` : ''}</span></div>
+        <div class="routes">${wallRoutes(w).map(routeCard).join('')}</div>
+      </div>`
     const playerRow = (p: Lobby['players'][number]) => `<div class="player">
         <i style="background:${PALETTE[p.color % 4].shirt}"></i>
         <span>${esc(p.name)}${p.id === this.selfId || (l.mode === 'local' && this.localIds.includes(p.id)) ? ' <span class="kicker">you</span>' : ''}${p.id === l.hostId && l.mode === 'online' ? ' <span class="kicker">host</span>' : ''}</span>
@@ -689,11 +726,12 @@ class App {
         ${day}
       </div>
       <div class="side-body">
-        <div class="routes">${CRAG.map(routeCard).join('')}</div>
+        ${CRAG_WALLS.map((w) => wallBlock(w, false)).join('')}
+        ${(l.walls ?? []).length ? `<div class="kicker sect">Newly set walls</div>${(l.walls ?? []).slice().reverse().map((w) => wallBlock(w, true)).join('')}` : ''}
         ${extra.length ? `<div class="kicker sect">Shared routes</div><div class="routes">${extra.map(routeCard).join('')}</div>` : ''}
         <div class="row newroute">
-          <select id="f-newgrade" aria-label="Grade for a new route">${GRADES.map((g) => opt(g, this.grade(g), g === this.newGrade)).join('')}</select>
-          <button class="btn small" data-act="random-route">+ New random route</button>
+          <select id="f-newgrade" aria-label="Middle grade for a new wall">${GRADES.map((g) => opt(g, this.grade(g), g === this.newGrade)).join('')}</select>
+          <button class="btn small" data-act="random-route">+ Set a new wall</button>
         </div>
       </div>
       <div class="side-foot">
@@ -716,20 +754,22 @@ class App {
     const tick = bestTick(r.id, this.me().name)
     const g = loadGhost(r.id)
     const shared = !CRAG.some((c) => c.id === r.id)
-    return `<div class="poster" style="--band:${gradeBand(r.grade)}">
+    const colour = r.wall ? r.wall.colours[r.wall.own] : null
+    return `<div class="poster ${colour === 'White' || colour === 'Yellow' ? 'light-tape' : ''}" style="--band:${routeHex(r)}">
       <div class="poster-grade">${esc(this.grade(r.grade))}</div>
       <div class="poster-main">
-        <span class="kicker">${esc(ANGLE_LABEL[r.angle])}${r.fa ? ` · FA ${esc(r.fa.by)}${r.fa.date ? ` ${esc(r.fa.date)}` : ''}` : ''}</span>
-        <h3>${esc(r.name)}</h3>
+        <span class="kicker">${r.wall ? `${esc(r.wall.name)} · ` : ''}${esc(ANGLE_LABEL[r.angle])}${r.fa ? ` · FA ${esc(r.fa.by)}${r.fa.date ? ` ${esc(r.fa.date)}` : ''}` : ''}</span>
+        <h3>${colour ? `${esc(colour)} <small>${esc(r.name)}</small>` : esc(r.name)}</h3>
+        ${colour ? `<p class="poster-rule">Stay on ${esc(colour.toLowerCase())} holds. Grab another colour and the go won't count as a send.</p>` : ''}
         <div class="poster-facts">
-          <span><b>${Math.round(r.anchor[1])}</b> m</span><span><b>${r.bolts.length}</b> bolts</span><span><b>${r.holds.filter((h) => h.type !== 'foot').length}</b> holds</span>
+          <span><b>${Math.round(r.anchor[1])}</b> m</span><span><b>${r.bolts.length}</b> bolts</span><span><b>${r.holds.filter((h) => h.type !== 'foot' && (!r.wall || h.r === r.wall.own)).length}</b> holds</span>
         </div>
         <div class="poster-tags">
           ${tick ? `<span class="tick ${tick === 'tried' ? 'tried' : ''}">${tick === 'tried' ? 'tried' : `your ${tick}`}</span>` : '<span class="tick tried">not tried</span>'}
           ${g ? `<span class="tick ghost">⏱ ${fmtTime(g.time)} · ${esc(g.name)}</span>` : ''}
         </div>
         <div class="row">
-          <button class="btn small" data-act="copy-route">Copy route link</button>
+          <button class="btn small" data-act="copy-route">${r.wall ? 'Copy wall link' : 'Copy route link'}</button>
           ${shared ? '<button class="btn small" data-act="forget-route">Forget</button>' : ''}
         </div>
       </div>
@@ -863,6 +903,7 @@ class App {
       <label class="check"><input type="checkbox" id="s-debug" ${s.debug ? 'checked' : ''}> Fall readout overlay (also G in game)</label>
       <label class="check"><input type="checkbox" id="s-coach" ${s.coach ? 'checked' : ''}> Coach tips for new players (turning it on shows them all again)</label>
       <label class="check"><input type="checkbox" id="s-ghost" ${s.ghost ? 'checked' : ''}> Ghost of the fastest send climbs beside you</label>
+      <label class="check"><input type="checkbox" id="s-fade" ${s.fadeOthers ? 'checked' : ''}> Fade the other colours on a wall (easier to read; real gyms don't)</label>
       <p class="note">Your weight matters: a lighter belayer gets lifted further on a big fall, a heavier one gives a harder catch.</p>
     </div></div>`
   }
@@ -912,6 +953,9 @@ class App {
         break
       case 's-wall':
         if (t.value in WALLS) s.wall = t.value as WallColor
+        break
+      case 's-fade':
+        s.fadeOthers = t.checked
         break
       case 's-ghost':
         s.ghost = t.checked
@@ -1030,23 +1074,28 @@ class App {
         break
       case 'random-route': {
         const g = (document.getElementById('f-newgrade') as HTMLSelectElement).value
-        const r = randomRoute(g, this.me().name)
-        saveSharedRoute(r)
-        this.cmd({ type: 'route', route: r })
-        this.selectedRoute = r.id
-        if (this.session) this.session.addRoute(r)
-        this.toast(`New route: ${r.name}`, 'good')
+        const w = randomWall(g, this.me().name)
+        saveSharedWall(w)
+        this.cmd({ type: 'wall', wall: w })
+        this.selectedRoute = wallRoute(w, 1).id
+        this.toast(`New wall: ${w.name}, ${w.routes.map((r) => r.colour.toLowerCase()).join(', ')}`, 'good')
         break
       }
-      case 'forget-route':
-        removeSharedRoute(this.selectedRoute)
+      case 'forget-route': {
+        const r = this.lobby ? findRoute(this.lobby, this.selectedRoute) : null
+        if (r?.wall) removeSharedWall(r.wall.id)
+        else removeSharedRoute(this.selectedRoute)
         this.selectedRoute = CRAG[3].id
+        this.toast('Forgotten in this browser; it leaves the list next session', 'info')
         break
+      }
       case 'copy-route':
       case 'copy-route-summary': {
         const l = this.lobby
         const r = l ? findRoute(l, act === 'copy-route' ? this.selectedRoute : l.routeId) : null
-        if (r) await copy(await routeLink(r), 'Route link copied', this)
+        const wall = r?.wall ? (CRAG_WALLS.find((w) => w.id === r.wall!.id) ?? l?.walls?.find((w) => w.id === r.wall!.id)) : null
+        if (r && wall) await copy(await wallLink(wall, r.wall!.own), 'Wall link copied', this)
+        else if (r) await copy(await routeLink(r), 'Route link copied', this)
         break
       }
       case 'copy-room':
@@ -1099,8 +1148,6 @@ function belayHtml(b: NonNullable<Summary['belay']>): string {
   return `<div class="belay-card"><span class="kicker">Belay · ${esc(b.name)}</span>${stars(b.stars)}<span class="why">${bits.join(' · ')}</span></div>`
 }
 
-const gradeBand = routeTape
-
 const svg = (body: string) => `<svg class="mode-icon" viewBox="0 0 48 48" aria-hidden="true">${body}</svg>`
 const ICON = {
   solo: svg('<circle cx="26" cy="9" r="4"/><path d="M25 14 L22 28 M22 28 L16 40 M22 28 L30 38 M24 18 L34 10 M24 19 L14 22"/><path class="r" d="M22 28 C 20 36, 30 40, 40 46"/>'),
@@ -1148,6 +1195,7 @@ function confetti(): string {
 function headline(s: Summary): string {
   if (s.sent && s.style) return `Sent! <span>${s.style}</span>`
   if (s.reason === 'ground') return 'Ground <span>fall</span>'
+  if (s.topped && s.offRoute) return 'Topped, <span>off route</span>'
   if (s.topped) return 'Topped, <span>not clean</span>'
   return `Lowered <span>off</span>`
 }
@@ -1189,6 +1237,7 @@ function helpHtml(): string {
     <p class="note"><b>Calls:</b> ${calls}</p>
     <p class="note"><b>Tips.</b> Feet first: step up with Q/E, then reach. Rest on jugs with your feet on. Ask for slack before you clip ("Clipping!") or you'll short-rope yourself. "Falling!" gives your belayer a bigger catch window. A send means reaching the top anchor with no falls and no rests on the rope.</p>
     <p class="note"><b>Belay stars.</b> Lock off before the rope comes tight and the catch counts; do it with Shift for a <i>perfect</i> one. Short-roping your leader, a big loop of slack near the ground, or a late catch cost stars. Dropping someone to the ground costs the lot.</p>
+    <p class="note"><b>Colours.</b> Each wall carries several routes, one colour each. Stick to your colour: any hold can be grabbed, but touching another colour means the go isn't a send. Your feet stay on your colour by themselves.</p>
     <p class="note"><b>Ghost.</b> The fastest send of each route is saved in your browser and climbs beside the next leader as a see-through ghost; the clock at the top shows if you are ahead. At the end of a day the crew gets awards, serious and otherwise.</p>
     <p class="note">On one computer the mouse climbs and the arrow keys belay. <kbd>G</kbd> shows the fall readout.</p>
   </div></div>`

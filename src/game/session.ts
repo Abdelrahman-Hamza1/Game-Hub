@@ -2,7 +2,7 @@
 // send styles. The host (or the local machine) owns this; guests receive the
 // Lobby as data and send commands back.
 
-import { CRAG } from '../sim/routes'
+import { CRAG, findWallRoute, type Wall } from '../sim/routes'
 import { GRADES } from '../sim/constants'
 import type { InputFrame, Route } from '../sim/types'
 import { emptyInput } from '../sim/types'
@@ -39,6 +39,8 @@ export interface Summary {
   date: string
   /** seconds from tie-in to the anchor, if topped */
   time: number | null
+  /** grabbed a hold of another colour */
+  offRoute: boolean
   /** how the human belayer did; null when the bot belayed */
   belay: (BelayStats & { score: number; stars: number; name: string }) | null
 }
@@ -71,8 +73,10 @@ export interface Lobby {
   phase: Phase
   players: PlayerInfo[]
   hostId: string
-  /** routes shared into this session beyond the home crag */
+  /** single routes shared into this session (old links) */
   extra: Route[]
+  /** gym walls set or shared in this session, beyond the home gym */
+  walls: Wall[]
   routeId: string | null
   leader: string | null
   /** player id or 'bot' */
@@ -91,9 +95,9 @@ export interface Lobby {
 export const BOT = 'bot'
 export const PLAYER_COLORS = [0, 1, 2, 3]
 
-export function findRoute(lobby: Pick<Lobby, 'extra'>, id: string | null): Route | null {
+export function findRoute(lobby: Pick<Lobby, 'extra'> & Partial<Pick<Lobby, 'walls'>>, id: string | null): Route | null {
   if (!id) return null
-  return CRAG.find((r) => r.id === id) ?? lobby.extra.find((r) => r.id === id) ?? null
+  return CRAG.find((r) => r.id === id) ?? lobby.extra.find((r) => r.id === id) ?? findWallRoute(lobby.walls ?? [], id)
 }
 
 export class Session {
@@ -109,6 +113,7 @@ export class Session {
       players: [],
       hostId,
       extra: [],
+      walls: [],
       routeId: null,
       leader: null,
       belayer: null,
@@ -158,6 +163,14 @@ export class Session {
     if (CRAG.some((x) => x.id === r.id) || this.lobby.extra.some((x) => x.id === r.id)) return
     this.lobby.extra.push(r)
     if (this.lobby.extra.length > 30) this.lobby.extra.shift()
+    this.bump()
+  }
+
+  addWall(w: Wall): void {
+    if (this.lobby.walls.some((x) => x.id === w.id)) return
+    this.lobby.walls.push(w)
+    // walls are big; keep the lobby small enough to send around
+    if (this.lobby.walls.length > 6) this.lobby.walls.shift()
     this.bump()
   }
 
@@ -294,7 +307,7 @@ export class Session {
     })
     this.lobby.summary = {
       routeId: route.id,
-      routeName: route.name,
+      routeName: route.wall ? `${route.name} (${route.wall.colours[route.wall.own]})` : route.name,
       grade: route.grade,
       leader: this.lobby.leader!,
       leaderName: L?.name ?? 'Climber',
@@ -308,6 +321,7 @@ export class Session {
       energyCost: cost,
       date: new Date().toISOString().slice(0, 10),
       time: end.time,
+      offRoute: end.offRoute,
       belay,
     }
     this.lobby.phase = 'summary'
@@ -365,7 +379,7 @@ export interface Award {
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
 /** The day's awards, from the crew's history. Funny ones included. */
-export function dayAwards(lobby: Pick<Lobby, 'players' | 'history' | 'extra'>): Award[] {
+export function dayAwards(lobby: Pick<Lobby, 'players' | 'history' | 'extra'> & Partial<Pick<Lobby, 'walls'>>): Award[] {
   const P = (id: string | undefined) => lobby.players.find((p) => p.id === id)
   const out: Award[] = []
   const add = (id: string, title: string, pid: string | undefined, detail: string) => {

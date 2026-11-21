@@ -1,6 +1,6 @@
 // Everything kept in this browser: settings, the logbook and routes friends shared.
 
-import { validRoute } from '../sim/routes'
+import { validRoute, validWall, type Wall } from '../sim/routes'
 import type { Route } from '../sim/types'
 import type { Style } from './session'
 import type { WallColor } from '../render/textures'
@@ -21,6 +21,8 @@ export interface Settings {
   ghost: boolean
   /** colour of the gym wall */
   wall: WallColor
+  /** fade holds of other colours on a shared wall */
+  fadeOthers: boolean
 }
 
 export interface LogEntry {
@@ -38,6 +40,7 @@ export interface LogEntry {
 const KEY_SETTINGS = 'short-rope:settings'
 const KEY_LOG = 'short-rope:logbook'
 const KEY_ROUTES = 'short-rope:routes'
+const KEY_WALLS = 'short-rope:walls'
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -68,6 +71,7 @@ const DEFAULT_SETTINGS: Settings = {
   coachDone: [],
   ghost: true,
   wall: 'charcoal',
+  fadeOthers: false,
 }
 
 export function loadSettings(): Settings {
@@ -109,6 +113,23 @@ export function removeSharedRoute(id: string): void {
   write(
     KEY_ROUTES,
     loadSharedRoutes().filter((x) => x.id !== id),
+  )
+}
+
+export function loadSharedWalls(): Wall[] {
+  return read<unknown[]>(KEY_WALLS, []).filter(validWall)
+}
+
+export function saveSharedWall(w: Wall): void {
+  const list = loadSharedWalls().filter((x) => x.id !== w.id)
+  list.unshift(w)
+  write(KEY_WALLS, list.slice(0, 6))
+}
+
+export function removeSharedWall(id: string): void {
+  write(
+    KEY_WALLS,
+    loadSharedWalls().filter((x) => x.id !== id),
   )
 }
 

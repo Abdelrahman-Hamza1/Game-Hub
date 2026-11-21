@@ -347,6 +347,7 @@ Plus: one life per run, no checkpoints, shared lives.
 - Conditions: friction from temperature, humidity, shade and chalk; changing through the day
 - Assisted-braking belay device (locks by itself, harder catches, can short-rope a fast clipper)
 - ~~Ghost beta~~ (built: the fastest send per route is recorded from snapshots on every machine that watched it and replayed with a race clock. Still to do: sharing a ghost inside a route link)
+- ~~Gym walls~~ (built: the crag is four walls of colour routes; off-colour holds can be grabbed but void the send; random walls and wall links)
 - ~~Crew stats~~ (built as the day board and day awards: most metres, fastest send, biggest whipper, softest hands, belayer of the day, frequent flyer, short-roper, gravity's friend)
 - Boulder grades (V-scale / Font)
 - Gamepad

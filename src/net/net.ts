@@ -4,6 +4,7 @@
 
 import { joinRoom, selfId, type Room } from 'trystero'
 import type { InputFrame, Route } from '../sim/types'
+import type { Wall } from '../sim/routes'
 import type { Snap } from '../sim/world'
 import type { Lobby } from '../game/session'
 
@@ -18,6 +19,7 @@ export interface Hello {
 export type Cmd =
   | { type: 'start'; routeId: string; leader?: string; belayer?: string }
   | { type: 'route'; route: Route }
+  | { type: 'wall'; wall: Wall }
   | { type: 'giveup' }
   | { type: 'back' }
   | { type: 'newday' }
