@@ -29,6 +29,7 @@ const INK = '#1D2125'
 const ROPE = '#FF6B1A'
 const MONO = "'JetBrains Mono', ui-monospace, monospace"
 const DISPLAY = "'Big Shoulders Display', 'Arial Narrow', sans-serif"
+const BODY_FONT = "'Public Sans', Arial, sans-serif"
 
 export interface Toast {
   text: string
@@ -52,6 +53,8 @@ export interface RenderView {
   latency: number | null
   /** false for the menu backdrop: no HUD, tags or calls */
   hud: boolean
+  /** a coach tip for the local player, if any */
+  coach?: string | null
 }
 
 export class Renderer {
@@ -65,6 +68,9 @@ export class Renderer {
   scale = 70
   private shake = 0
   private lastNow = 0
+  private frameDt = 0
+  /** drawn limb positions relative to the body, so steps and grabs animate instead of teleporting */
+  private limbOff: [number, number][] | null = null
   private rock: CanvasPattern
   private grass: CanvasPattern
 
@@ -118,6 +124,7 @@ export class Renderer {
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     const dt = Math.min(0.1, Math.max(0, v.now - this.lastNow))
     this.lastNow = v.now
+    this.frameDt = dt
     this.shake = Math.max(0, this.shake - dt * 40)
     if (this.shake > 0.3) {
       const a = this.shake
@@ -606,16 +613,49 @@ export class Renderer {
     const flail = v.snap.fall ? 1 : 0
     const wob = (l: [number, number, number, number], i: number, amp: number): [number, number] =>
       flail && l[2] === 0 ? [l[0] + Math.sin(v.now * 17 + i * 2.1) * amp, l[1] + Math.cos(v.now * 13 + i * 1.7) * amp] : [l[0], l[1]]
+    const limbs = this.smoothLimbs(sn.chest, sn.pelvis, [...sn.hands.map((h, i) => wob(h, i, 0.12)), ...sn.feet.map((f, i) => wob(f, i + 2, 0.08))])
     this.drawPerson(
       sn.chest,
       sn.pelvis,
-      sn.hands.map((h, i) => wob(h, i, 0.12)),
-      sn.feet.map((f, i) => wob(f, i + 2, 0.08)),
+      limbs.slice(0, 2),
+      limbs.slice(2),
       v.leader.color,
       shake,
       v.now,
     )
     if (v.hud) this.nameTag(sn.chest[0], sn.chest[1] + 0.55, v.leader.name, v.leader.color)
+  }
+
+  /**
+   * Hands and feet move toward where the sim says they are at a capped speed
+   * relative to the body: ordinary motion passes straight through, but a foot
+   * placed on a new hold travels there (with a little lift) instead of jumping.
+   */
+  private smoothLimbs(chest: [number, number], pelvis: [number, number], target: [number, number][]): [number, number][] {
+    const base = (i: number) => (i < 2 ? chest : pelvis)
+    const want = target.map((p, i) => [p[0] - base(i)[0], p[1] - base(i)[1]] as [number, number])
+    const dt = this.frameDt
+    if (!this.limbOff || dt <= 0 || dt > 0.25) this.limbOff = want.map((p) => [p[0], p[1]])
+    const out: [number, number][] = []
+    for (let i = 0; i < want.length; i++) {
+      const o = this.limbOff[i]
+      const dx = want[i][0] - o[0], dy = want[i][1] - o[1]
+      const d = Math.hypot(dx, dy)
+      // far off (a respawn or a new attempt): just snap
+      if (d > 1.5) {
+        o[0] = want[i][0]
+        o[1] = want[i][1]
+      } else {
+        const step = (i < 2 ? 9 : 4.5) * dt
+        const k = d <= step ? 1 : step / d
+        o[0] += dx * k
+        o[1] += dy * k
+      }
+      const left = Math.hypot(want[i][0] - o[0], want[i][1] - o[1])
+      const lift = i >= 2 ? Math.min(0.12, left * 0.35) : 0
+      out.push([base(i)[0] + o[0], base(i)[1] + o[1] + lift])
+    }
+    return out
   }
 
   private drawBelayer(v: RenderView): void {
@@ -885,6 +925,7 @@ export class Renderer {
     const lastCall = snap.calls.length ? snap.calls[snap.calls.length - 1] : null
     if (snap.fall) prompt = 'FALLING! Hold Enter to catch'
     else if (sn.clip >= 0) prompt = 'Clipping: feed slack ↓'
+    else if (sn.clipHint >= 0 && snap.slack < 1.2) prompt = 'Clip coming: feed some slack ↓'
     else if (lastCall && snap.t - lastCall.t < 2.5 && lastCall.id === 5) prompt = 'Take! Pull in ↑ then hold Enter'
     else if (lastCall && snap.t - lastCall.t < 2.5 && lastCall.id === 4) prompt = 'Slack! Feed ↓'
     else if (snap.topped || (lastCall && lastCall.id === 8)) prompt = 'Lower: hold ↓ to pay out'
@@ -900,6 +941,8 @@ export class Renderer {
       c.fillText('alert', bx + 220, by + 20)
     }
 
+    if (v.coach) this.drawCoach(v.coach)
+
     // help line, bottom centre
     c.font = `600 11px ${MONO}`
     const help = v.helpOpen
@@ -912,6 +955,39 @@ export class Renderer {
       c.fillStyle = '#C9CCC7'
       c.fillText(t, this.W / 2 - w / 2 + 9, this.H - 19)
     }
+  }
+
+  /** the coach's tip, wrapped to fit between the two bottom panels */
+  private drawCoach(text: string): void {
+    const c = this.c
+    c.font = `600 13px ${BODY_FONT}`
+    const maxW = Math.max(240, Math.min(560, this.W - 620))
+    const lines: string[] = []
+    let line = ''
+    for (const word of text.split(' ')) {
+      const t = line ? `${line} ${word}` : word
+      if (c.measureText(t).width > maxW && line) {
+        lines.push(line)
+        line = word
+      } else line = t
+    }
+    if (line) lines.push(line)
+    const w = Math.max(...lines.map((l) => c.measureText(l).width)) + 44
+    const h = lines.length * 18 + 16
+    const x = this.W / 2 - w / 2, y = this.H - 46 - h
+    c.fillStyle = 'rgba(248,248,246,0.96)'
+    c.strokeStyle = INK
+    c.lineWidth = 1.5
+    c.beginPath()
+    c.roundRect(x, y, w, h, 6)
+    c.fill()
+    c.stroke()
+    c.fillStyle = ROPE
+    c.beginPath()
+    c.arc(x + 16, y + h / 2, 5, 0, Math.PI * 2)
+    c.fill()
+    c.fillStyle = INK
+    lines.forEach((l, i) => c.fillText(l, x + 30, y + 21 + i * 18))
   }
 
   private drawToasts(v: RenderView): void {

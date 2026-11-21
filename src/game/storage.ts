@@ -12,6 +12,10 @@ export interface Settings {
   voice: boolean
   sound: boolean
   debug: boolean
+  /** one-line tips for new players */
+  coach: boolean
+  /** tips already learned or seen */
+  coachDone: string[]
 }
 
 export interface LogEntry {
@@ -55,10 +59,13 @@ const DEFAULT_SETTINGS: Settings = {
   voice: true,
   sound: true,
   debug: false,
+  coach: true,
+  coachDone: [],
 }
 
 export function loadSettings(): Settings {
-  return { ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(KEY_SETTINGS, {}) }
+  const s = { ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(KEY_SETTINGS, {}) }
+  return { ...s, coachDone: Array.isArray(s.coachDone) ? [...s.coachDone] : [] }
 }
 
 export function saveSettings(s: Settings): void {

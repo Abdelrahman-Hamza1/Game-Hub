@@ -45,6 +45,8 @@ export interface Limb {
   /** hold index, -1 = none, -2 = ground */
   hold: number
   state: LimbState
+  /** extra arm length right after a stretched grab; shrinks to 0 so the body is pulled in smoothly */
+  ext?: number
 }
 
 export interface ClipAction {
@@ -74,6 +76,9 @@ export interface Climber {
   /** drain multiplier from posture, for the HUD */
   mult: number
   feetOn: number
+  /** a foot that just came off can't go straight back onto that hold (auto feet would flicker) */
+  footCool: [number, number]
+  footCoolHold: [number, number]
 }
 
 export interface Draw {

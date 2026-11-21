@@ -299,7 +299,7 @@ export function stepWorld(w: World, dt: number, leaderIn: InputFrame, belayIn: I
   for (let s = 0; s < SUBSTEPS; s++) {
     substepClimber(c, h, force, { emit: (t, x) => emit(w, t, x) })
     substepBelayer(w, h, dforce)
-    w.rope.demand = c.clip ? c.clip.demand * Math.min(1, (c.clip.t / c.clip.dur) * 1.6) : 0
+    w.rope.demand = c.clip ? c.clip.demand * Math.min(1, c.clip.t / c.clip.dur) : 0
     const r = stepRope(w.rope, pf, h, hold, payout)
     force = r.harness
     dforce = r.device
@@ -327,7 +327,8 @@ function substepBelayer(w: World, h: number, F: [number, number]): void {
   const ay = F[1] / m - G
   if (b.grounded) {
     const braced = b.mode === 'lock' && !b.soft
-    const lift = braced ? 1.35 * m * G : m * G
+    // a little extra over body weight, so feeding against a loaded rope doesn't make them bob
+    const lift = braced ? 1.35 * m * G : 1.15 * m * G
     if (F[1] > lift) b.grounded = false
     else {
       b.vy = 0
@@ -630,7 +631,8 @@ function botInput(w: World): InputFrame {
     if (g > 0 && !hanging && w.slack < 0.3) bot.takeUntil = 0
     return inp
   }
-  const want = c.clip || w.t < bot.slackUntil ? 1.6 : 0.6
+  // a good belayer sees the clip coming and feeds before the leader pulls
+  const want = c.clip || c.clipHint >= 0 || w.t < bot.slackUntil ? 1.6 : 0.6
   if (w.slack < want - 0.15 || (c.clip && w.Tharness > 50)) inp.feed = true
   else if (w.slack > want + 1.0 && c.pelvis.y > 1.5) inp.take = true
   return inp

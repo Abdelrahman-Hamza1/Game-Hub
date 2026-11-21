@@ -2,6 +2,7 @@ import './style.css'
 import { sayCall, setAudio, sfx, unlockAudio } from './audio'
 import { BOT, crewBoard, findRoute, Session, type Lobby, type Summary } from './game/session'
 import { decodeRoute, routeLink, baseUrl } from './game/share'
+import { coachTip, LEARNED_BY, SHOW_FOR } from './game/coach'
 import {
   addLog,
   bestTick,
@@ -40,15 +41,21 @@ class App {
   net: Net | null = null
   lobby: Lobby | null = null
   snap: Snap | null = null
+  /** host: the state one physics step before `snap`, to draw between steps */
   prevSnap: Snap | null = null
-  snapAt = 0
-  prevSnapAt = 0
+  /** guest: recent snapshots from the host, played back a little behind */
+  snapBuf: Snap[] = []
+  /** guest: host clock minus local clock, smoothed */
+  clockOffset: number | null = null
   selfId = 'p1'
   localIds: string[] = []
   roomCode: string | null = null
   status = ''
   toasts: Toast[] = []
   seenEvent = 0
+  /** coach: how often each event happened this session, and how long each tip has been up */
+  coachCounts: Record<string, number> = {}
+  coachShown: Record<string, number> = {}
   lastSnapT = 0
   seenCalls = new Set<string>()
   loggedSummaries = new Set<string>()
@@ -179,10 +186,21 @@ class App {
       },
       onSnap: (sn) => {
         if (!live() || !sn || !sn.c) return
-        this.prevSnap = this.snap
-        this.prevSnapAt = this.snapAt
+        const now = performance.now() / 1000
+        const last = this.snapBuf[this.snapBuf.length - 1]
+        // a new attempt restarts the clock
+        if (last && sn.t < last.t) {
+          this.snapBuf = []
+          this.clockOffset = null
+        }
+        if (last && sn.t === last.t) return
+        this.snapBuf.push(sn)
+        if (this.snapBuf.length > 12) this.snapBuf.shift()
+        const off = sn.t - now
+        // follow the host clock gently, so uneven packets don't make the picture jump
+        if (this.clockOffset === null || Math.abs(off - this.clockOffset) > 0.5) this.clockOffset = off
+        else this.clockOffset += (off - this.clockOffset) * 0.05
         this.snap = sn
-        this.snapAt = performance.now()
       },
       onInput: (peer, f) => {
         if (live() && validFrame(f)) this.session?.setInput(peer, f)
@@ -233,6 +251,8 @@ class App {
     this.session = null
     this.lobby = null
     this.snap = this.prevSnap = null
+    this.snapBuf = []
+    this.clockOffset = null
     this.localIds = []
     this.screen = 'menu'
     this.modal = null
@@ -305,10 +325,13 @@ class App {
         s.step(1 / 60)
         this.acc -= 1 / 60
         steps++
+        // keep the state before the newest step, to draw in between
+        this.prevSnap = this.snap
+        this.snap = s.snap()
       }
       if (steps === 6) this.acc = 0
       this.lobby = s.lobby
-      this.snap = s.snap()
+      if (!steps && !this.snap) this.snap = s.snap()
       if (this.net) {
         this.sendAcc += dt
         if (this.sendAcc >= 1 / 30 && this.snap && s.lobby.phase !== 'crag') {
@@ -345,11 +368,23 @@ class App {
   }
 
   private viewSnap(): Snap | null {
-    if (this.session || !this.snap) return this.snap
-    if (!this.prevSnap) return this.snap
-    const interval = Math.max(1, this.snapAt - this.prevSnapAt)
-    const k = (performance.now() - this.snapAt) / interval
-    return lerpSnap(this.prevSnap, this.snap, Math.min(1, k))
+    if (!this.snap) return null
+    if (this.session) {
+      // host: draw between the last two physics steps
+      const a = this.prevSnap
+      if (!a || a.t > this.snap.t) return this.snap
+      return lerpSnap(a, this.snap, Math.min(1, this.acc * 60))
+    }
+    // guest: play the buffer back about 80 ms behind the host
+    const buf = this.snapBuf
+    if (buf.length < 2 || this.clockOffset === null) return this.snap
+    const at = performance.now() / 1000 + this.clockOffset - 0.08
+    if (at <= buf[0].t) return buf[0]
+    for (let i = buf.length - 1; i > 0; i--) {
+      const a = buf[i - 1], b = buf[i]
+      if (at >= a.t) return at >= b.t ? b : lerpSnap(a, b, (at - a.t) / (b.t - a.t))
+    }
+    return this.snap
   }
 
   draw(dt: number, playing: boolean): void {
@@ -400,6 +435,7 @@ class App {
       helpOpen: this.modal === 'help',
       latency: this.net && !this.net.isHost ? this.net.latency : null,
       hud: playing,
+      coach: playing ? this.coachLine(snap, dt) : null,
     })
   }
 
@@ -413,6 +449,10 @@ class App {
       if (e.id <= this.seenEvent) continue
       this.seenEvent = e.id
       if (snap.t - e.t > 1) continue
+      if (this.isLocalLeader()) {
+        const n = (this.coachCounts[e.type] = (this.coachCounts[e.type] ?? 0) + 1)
+        for (const [id, rule] of Object.entries(LEARNED_BY)) if (rule.event === e.type && n >= rule.count) this.retireTip(id)
+      }
       sfx(e.type)
       if (e.type === 'catch') this.renderer.kick(Math.min(14, (snap.lastFall?.peak ?? 2000) / 450))
       if (e.type === 'ground') this.renderer.kick(18)
@@ -430,6 +470,25 @@ class App {
       if (snap.t - c.t > 1) continue
       sayCall(c.id, c.role)
     }
+  }
+
+  retireTip(id: string): void {
+    if (this.settings.coachDone.includes(id)) return
+    this.settings.coachDone.push(id)
+    saveSettings(this.settings)
+  }
+
+  /** the coach's line for this frame */
+  private coachLine(snap: Snap, dt: number): string | null {
+    const l = this.lobby
+    if (!this.settings.coach || !l || l.phase !== 'climb' || this.modal) return null
+    const leader = this.isLocalLeader(), belayer = this.isLocalBelayer()
+    // two people on one keyboard: coach the climber, the belay panel prompts the belayer
+    const tip = coachTip({ snap, leader, belayer: belayer && !leader, autoFeet: l.autoFeet, age: snap.t }, new Set(this.settings.coachDone))
+    if (!tip) return null
+    const shown = (this.coachShown[tip.id] = (this.coachShown[tip.id] ?? 0) + dt)
+    if (shown > SHOW_FOR) this.retireTip(tip.id)
+    return tip.text
   }
 
   toast(text: string, kind: Toast['kind']): void {
@@ -715,6 +774,7 @@ class App {
       <label class="check"><input type="checkbox" id="s-sound" ${s.sound ? 'checked' : ''}> Sound effects</label>
       <label class="check"><input type="checkbox" id="s-voice" ${s.voice ? 'checked' : ''}> Spoken calls</label>
       <label class="check"><input type="checkbox" id="s-debug" ${s.debug ? 'checked' : ''}> Fall readout overlay (also G in game)</label>
+      <label class="check"><input type="checkbox" id="s-coach" ${s.coach ? 'checked' : ''}> Coach tips for new players (turning it on shows them all again)</label>
       <p class="note">Your weight matters: a lighter belayer gets lifted further on a big fall, a heavier one gives a harder catch.</p>
     </div></div>`
   }
@@ -753,6 +813,14 @@ class App {
         break
       case 's-debug':
         s.debug = t.checked
+        break
+      case 's-coach':
+        s.coach = t.checked
+        if (t.checked) {
+          s.coachDone = []
+          this.coachShown = {}
+          this.coachCounts = {}
+        }
         break
       case 'f-autofeet':
         s.autoFeet = t.checked

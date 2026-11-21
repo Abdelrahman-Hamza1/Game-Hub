@@ -36,6 +36,8 @@ export function createClimber(route: Route, mass: number, tired: number): Climbe
     clipHint: -1,
     mult: 1,
     feetOn: 2,
+    footCool: [0, 0],
+    footCoolHold: [-1, -1],
   }
 }
 
@@ -68,12 +70,19 @@ export function footCandidate(c: Climber, route: Route, side: number): number {
   const other = c.feet[side < 0 ? 1 : 0]
   let best = -1
   let bestScore = Infinity
+  const fi = side < 0 ? 0 : 1
+  // where the muscles are taking the pelvis: a foothold out of reach from there would just come off again
+  const tgt = poseTarget(c)
+  const gx = tgt ? tgt.x * 0.8 + p.x * 0.2 : p.x
+  const gy = tgt ? tgt.chestY - BODY.torso : p.y
   const consider = (idx: number, x: number, y: number) => {
     if (idx === foot.hold && foot.state === 1) return
+    if (c.footCool[fi] > 0 && idx === c.footCoolHold[fi]) return
     if (idx !== -2 && other.state === 1 && other.hold === idx) return
     if (idx >= 0 && usedByHands(c, idx)) return
     if (y > p.y - 0.2) return
     if (Math.hypot(x - p.x, y - p.y) > BODY.leg - 0.02) return
+    if (idx !== -2 && Math.hypot(x - gx, y - gy) > BODY.leg) return
     if (side < 0 ? x > p.x + 0.18 : x < p.x - 0.18) return
     const score = Math.abs(x - (p.x + side * 0.2)) + Math.abs(y - (p.y - 0.42)) * 1.2
     if (score < bestScore) {
@@ -156,6 +165,8 @@ export function controlClimber(c: Climber, inp: InputFrame, ctx: ControlCtx, dt:
         hand.hold = idx
         hand.x = route.holds[idx].x
         hand.y = route.holds[idx].y
+        // the hold may sit a little past full reach: start with that much give and pull in
+        hand.ext = Math.max(0, Math.hypot(hand.x - c.chest.x, hand.y - c.chest.y) - BODY.reach)
         c.popT[i] = 0
         ctx.ev.emit('grab', route.holds[idx].type)
         if (route.holds[idx].role === 'top') ctx.ev.emit('tophold')
@@ -167,6 +178,8 @@ export function controlClimber(c: Climber, inp: InputFrame, ctx: ControlCtx, dt:
   }
 
   // feet: Q / E step to the best foothold, or auto feet
+  c.footCool[0] = Math.max(0, c.footCool[0] - dt)
+  c.footCool[1] = Math.max(0, c.footCool[1] - dt)
   c.footHint = [footCandidate(c, route, -1), footCandidate(c, route, 1)]
   const pressed = [inp.seq.footL !== ctx.prev.footL, inp.seq.footR !== ctx.prev.footR]
   for (let i = 0; i < 2; i++) {
@@ -320,6 +333,8 @@ export function substepClimber(c: Climber, h: number, force: [number, number], e
         [c.chest, 0, 0],
         [c.pelvis, 0, 0],
       ]
+  // a stretched grab's give shrinks over about a fifth of a second
+  for (const hand of c.hands) if (hand.ext) hand.ext = Math.max(0, hand.ext - 1.2 * h)
   for (const [p, tx, ty] of parts) {
     const vx = (p.x - p.px) / h
     const vy = (p.y - p.py) / h
@@ -343,7 +358,22 @@ export function substepClimber(c: Climber, h: number, force: [number, number], e
     p.y += vy * h * damp + ay * h * h
   }
   project(c, ev)
+  // safety net: a body held by its hands never moves faster than a lunge.
+  // Constraint corrections become velocity in this kind of solver, and a big
+  // one would otherwise fling the climber across the wall.
+  if (target && grips(c) > 0) {
+    for (const p of [c.chest, c.pelvis]) {
+      const vx = (p.x - p.px) / h, vy = (p.y - p.py) / h
+      const v = Math.hypot(vx, vy)
+      if (v > MAX_HELD_SPEED) {
+        p.px = p.x - (vx / v) * MAX_HELD_SPEED * h
+        p.py = p.y - (vy / v) * MAX_HELD_SPEED * h
+      }
+    }
+  }
 }
+
+const MAX_HELD_SPEED = 4
 
 function project(c: Climber, ev: ClimberEvents): void {
   for (let it = 0; it < 4; it++) {
@@ -358,16 +388,20 @@ function project(c: Climber, ev: ClimberEvents): void {
     // gripping hands hold the chest within arm reach
     for (const hand of c.hands) {
       if (hand.state !== 1) continue
-      maxDist(c.chest, hand.x, hand.y, BODY.reach)
+      maxDist(c.chest, hand.x, hand.y, BODY.reach + (hand.ext ?? 0))
     }
     // feet can only push: when the body moves out of leg reach the foot comes off
     for (const foot of c.feet) {
       if (foot.state !== 1) continue
       const fd = Math.hypot(c.pelvis.x - foot.x, c.pelvis.y - foot.y)
       if (fd > BODY.leg + 0.04) {
+        const i = c.feet.indexOf(foot)
+        c.footCool[i] = 1.2
+        c.footCoolHold[i] = foot.hold
         foot.state = 0
         foot.hold = -1
-        if (foot.y > 0) ev.emit('footslip')
+        // a trailing foot left behind is normal; losing the last foot is a slip
+        if (foot.y > 0 && planted(c).length === 0) ev.emit('footslip')
       }
     }
     // ground
