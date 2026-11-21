@@ -85,8 +85,30 @@ and `manual()`.
 
 ## Deploying
 
-Push to `main`: the hub's `.github/workflows/deploy.yml` tests and builds every game in
-`games-src/` and publishes the site. `games/ten-seconds/` is build output; don't commit it.
+`npm run build` writes a fully static game to `../../games/ten-seconds/` (relative asset paths,
+`base: './'`), so it runs from any folder on any static host. Every level and solution is bundled
+into the JavaScript; the only runtime request is Google Fonts (the game falls back to system fonts).
+
+**GitHub Pages (how Game Night ships):** push to `main`. The hub's `.github/workflows/deploy.yml`
+runs `node scripts/build-games.mjs --ci`, which installs, tests and builds every game in
+`games-src/`, then publishes the site. A failing Ten Seconds test (any level's solution, the
+validator, determinism, scrub speed) blocks the deploy. The game is live at
+`https://<user>.github.io/<repo>/games/ten-seconds/`.
+
+**On its own (Netlify, Vercel, Cloudflare Pages, any static host):** build, then publish the
+contents of `games/ten-seconds/`. Build command `npm run build` in `games-src/ten-seconds/`, output
+directory `../../games/ten-seconds`. The `../../shared/gamenight.js` script tag simply 404s outside
+the hub and the game runs without the hub bar. No server code, no environment variables.
+
+**Share links** are `…/games/ten-seconds/#level=<code>`: the whole level (grid + settings,
+deflated, base64url) travels in the link, so they work on any host. Deep links to a built-in level
+are `#play=<id>` (it must be unlocked in that browser).
+
+**Before shipping, check:** `npm test`; no console errors on the title, a level, a win, the editor
+and a share link; one playthrough on a phone (touch buttons, walking by holding a finger, sound after
+the first tap).
+
+`games/ten-seconds/` is build output; don't commit it.
 
 ## Milestones
 
@@ -100,7 +122,7 @@ Push to `main`: the hub's `.github/workflows/deploy.yml` tests and builds every 
 - [x] M4 Feel and audio: rewind streak (history played backwards) with tape sweep and chime, slow
       last second with a vignette, payoff replay with zoom-out, sting and full-crew music, layered
       music (one layer per copy), every sound synthesized, settings, reduced motion (fades, no shake)
-- [ ] M5 Chapter 2
+- [x] M5 Chapter 2: 2-1 to 2-F (switches, inverted/timer doors, keycards, cameras, shutters)
 - [ ] M6 Editor and sharing
 - [ ] M7 Chapters 3–5
 - [ ] M8 Polish

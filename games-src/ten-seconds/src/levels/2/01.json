@@ -1,0 +1,8 @@
+{
+  "name": "Flip",
+  "par": 2,
+  "swiftTime": 4.0,
+  "hint": "A switch stays where you leave it. This one opens the vault and shuts the way out, or the other way round.",
+  "doors": { "A": { "rule": "switch", "wires": ["a"] }, "B": { "rule": "switch", "wires": ["a"], "invert": true } },
+  "triggers": { "a": { "type": "switch" } }
+}

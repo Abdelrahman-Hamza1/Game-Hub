@@ -1,0 +1,10 @@
+{
+  "name": "Overtime",
+  "par": 3,
+  "swiftTime": 7.5,
+  "hint": "A camera watches the vault corridor, a clerk is working late inside, and the card door is at the corridor's foot. Stand beside a door, not in front of it.",
+  "doors": { "C": { "rule": "card" } },
+  "triggers": { "a": { "type": "shutter", "camera": 0 } },
+  "cameras": [{ "from": 80, "to": 100, "period": 4, "phase": 0 }],
+  "guards": [{ "route": [[15, 6], [26, 6]], "mode": "pingpong" }]
+}

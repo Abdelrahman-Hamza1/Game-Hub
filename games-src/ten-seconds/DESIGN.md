@@ -99,7 +99,7 @@ low wall. Walking over an item picks it up (one at a time).
 | Guard | `@` | Walks a route (ping-pong or loop); investigates lures and coins |
 | Camera | `%` | Fixed; sweeps between two angles over a period |
 | Hound | `&` | Follows the trail of the most recently recorded copy, 2 s behind |
-| Auditor | `!` | A guard with a watch: at the start of each loop he walks to where the newest copy stood at the end of its loop, waits, then follows his route |
+| Auditor | `!` | A guard with a watch: at the start of each loop he walks to where the newest copy stood at the end of its loop, waits, then follows his route. A second Auditor remembers the second-newest copy, and so on |
 
 Detection fails the loop and shows a red line from the detector to who was seen, plus "Seen: copy
 3 at 4.2 s".
@@ -210,3 +210,23 @@ Judgment calls the brief didn't cover, or where it had to bend. Newest last.
   airlock, one runs back to ring the bell, and the runner hides in the gallery's west end until
   then.
 - **Targets can be named** (`targetName` in the JSON) for messages, such as "picks up the ruby".
+- **The Watchmaker's rewind ends the loop, it doesn't fail it.** If it failed the loop, no lever
+  holder could ever be recorded (one player can't hold three levers), so 5-F would be unwinnable.
+  His rewind cuts the loop short like the clock running out: the copy is kept and stands still
+  afterwards. Only a loop that must last past his check needs every lever held.
+- **Auditors remember different copies.** The first Auditor (reading order) goes to where the
+  newest copy ended, the second to the second-newest, and so on (5-7 Watch Room).
+- **Bodies collide only off the start.** Everyone starts on the same tile, so in `bodiesCollide`
+  levels two bodies only block each other once both have stepped at least 0.8 tiles from the start
+  (judged from the previous tick, the same way live and in replay).
+- **Chapter 2 locks.** A single press (switch, shutter) is instant, so a copy with spare time can
+  usually do a second job. Chapter 2 pins jobs with booths and timers. In 2-2 the switches start
+  on, and each switch's booth locks while it's off; B is `inverted` on both, so it needs both off. In
+  2-8 a booth locks while its switch is off, and the plate room is a timer door open 0–3 s. In 2-F the
+  front doors are a timer door that shuts at 2 s, which forces the window hand-off.
+- **2-4 scanner.** The middle door is a card door with `"invert": true` (it shuts while the card is
+  near), so the card can only reach the back room through the window: the relay the brief asks for.
+- **2-6 camera.** The brief's "wide camera" became a narrow sweep down a one-tile corridor; a
+  genuinely wide sweep leaves gaps a solo run can slip through.
+- **2-F cameras.** One camera watches the teller hall; the second watches the vault shaft (the
+  shutter blinds that one).

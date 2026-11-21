@@ -1,0 +1,7 @@
+{
+  "name": "Card Relay",
+  "par": 3,
+  "swiftTime": 5.5,
+  "hint": "One card, two card doors. Door C is a scanner: it stays shut while anyone carrying a card is near it. Cards go through windows; people don't.",
+  "doors": { "A": { "rule": "card" }, "B": { "rule": "card" }, "C": { "rule": "card", "invert": true } }
+}

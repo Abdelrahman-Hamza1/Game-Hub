@@ -1,0 +1,7 @@
+{
+  "name": "One Card",
+  "par": 2,
+  "swiftTime": 8.0,
+  "hint": "A card door opens while someone carrying the card stands next to it. The office is a long walk round, but its window is right there.",
+  "doors": { "C": { "rule": "card" } }
+}

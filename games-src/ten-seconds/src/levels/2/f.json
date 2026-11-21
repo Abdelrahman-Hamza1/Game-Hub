@@ -1,0 +1,21 @@
+{
+  "name": "The Vault",
+  "par": 5,
+  "swiftTime": 8.0,
+  "targetName": "diamond",
+  "hint": "Five jobs, five of you. The front doors lock at 2 s, so the diamond leaves through the teller window to someone who never went in. The vault camera sees the whole vault: one blink of the shutter has to cover the trip in and out.",
+  "doors": {
+    "B": { "rule": "timer", "open": [0, 2.0] },
+    "C": { "rule": "card" },
+    "D": { "rule": "plate", "wires": ["a"] }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "shutter", "camera": 1 } },
+  "cameras": [
+    { "from": 190, "to": 260, "period": 5, "phase": 0 },
+    { "from": 260, "to": 280, "period": 4, "phase": 0 }
+  ],
+  "guards": [
+    { "route": [[10, 6], [18, 6]], "mode": "pingpong", "toward": 0 },
+    { "route": [[14, 13], [23, 13]], "mode": "pingpong", "toward": 0 }
+  ]
+}

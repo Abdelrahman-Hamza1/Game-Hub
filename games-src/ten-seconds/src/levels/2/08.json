@@ -1,0 +1,14 @@
+{
+  "name": "Deposit Box",
+  "par": 4,
+  "swiftTime": 6.0,
+  "hint": "Three locks, one each: the card door, the switch door, the plate door. Throwing switch d locks its booth (and the exit gate needs it thrown), and the plate room locks at 3 s.",
+  "doors": {
+    "C": { "rule": "card" },
+    "D": { "rule": "switch", "wires": ["d"] },
+    "F": { "rule": "plate", "wires": ["f"] },
+    "G": { "rule": "timer", "open": [0, 3.0] },
+    "H": { "rule": "switch", "wires": ["d"], "invert": true }
+  },
+  "triggers": { "d": { "type": "switch" }, "f": { "type": "plate" } }
+}

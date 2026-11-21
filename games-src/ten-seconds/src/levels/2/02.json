@@ -1,0 +1,13 @@
+{
+  "name": "Two Switches",
+  "par": 3,
+  "swiftTime": 4.5,
+  "hint": "Door A opens while exactly one switch is off, door B only while both are. Flip a switch off and its booth locks you in until you flip it back.",
+  "doors": {
+    "A": { "rule": "switch", "wires": ["a", "b"] },
+    "B": { "rule": "inverted", "wires": ["a", "b"] },
+    "C": { "rule": "switch", "wires": ["a"] },
+    "D": { "rule": "switch", "wires": ["b"] }
+  },
+  "triggers": { "a": { "type": "switch", "on": true }, "b": { "type": "switch", "on": true } }
+}

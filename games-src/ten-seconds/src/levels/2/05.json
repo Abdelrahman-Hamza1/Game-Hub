@@ -1,0 +1,7 @@
+{
+  "name": "Eye in the Sky",
+  "par": 1,
+  "swiftTime": 7.0,
+  "hint": "The camera sweeps the atrium and back. Watch where its eye is, not where you are.",
+  "cameras": [{ "from": 20, "to": 160, "period": 8, "phase": 0 }]
+}

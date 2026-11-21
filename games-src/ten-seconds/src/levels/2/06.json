@@ -1,0 +1,8 @@
+{
+  "name": "Shutter",
+  "par": 2,
+  "swiftTime": 6.5,
+  "hint": "The camera never looks away from the vault corridor. The shutter switch blinds it for three seconds: long enough for the corridor, not for the walk from the switch as well.",
+  "triggers": { "a": { "type": "shutter", "camera": 0 } },
+  "cameras": [{ "from": 80, "to": 100, "period": 4, "phase": 0 }]
+}
