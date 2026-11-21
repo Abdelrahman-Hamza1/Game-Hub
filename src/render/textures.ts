@@ -1,88 +1,100 @@
-// Procedural textures, generated once at startup.
+// Procedural textures for the climbing gym, generated once per wall colour.
 
 import { rng } from '../sim/routes'
 
-export function rockTexture(size = 512, seed = 7): HTMLCanvasElement {
+export type WallColor = 'charcoal' | 'navy' | 'plywood' | 'sage' | 'white'
+
+export const WALLS: Record<WallColor, { name: string; base: string; light: boolean }> = {
+  charcoal: { name: 'Charcoal', base: '#33383F', light: false },
+  navy: { name: 'Midnight blue', base: '#263A57', light: false },
+  plywood: { name: 'Plywood', base: '#CDB38C', light: true },
+  sage: { name: 'Sage green', base: '#5E7A69', light: false },
+  white: { name: 'White', base: '#E6E9EC', light: true },
+}
+
+/** One square wall panel (PANEL_M metres a side) with seams, grain and a grid of bolt holes. */
+export const PANEL_M = 1.22
+export function panelTexture(color: WallColor, size = 256): HTMLCanvasElement {
+  const wall = WALLS[color]
   const cv = document.createElement('canvas')
   cv.width = cv.height = size
   const c = cv.getContext('2d')!
-  const r = rng(seed)
-  c.fillStyle = '#B9B09F'
+  const r = rng(17)
+  c.fillStyle = wall.base
   c.fillRect(0, 0, size, size)
-  // large tonal blotches
-  for (let i = 0; i < 70; i++) {
-    const x = r() * size, y = r() * size, rad = 20 + r() * 90
+  // paint texture: soft tonal blotches and fine speckle
+  for (let i = 0; i < 40; i++) {
+    const x = r() * size, y = r() * size, rad = 20 + r() * 60
     const g = c.createRadialGradient(x, y, 0, x, y, rad)
-    const dark = r() < 0.5
-    g.addColorStop(0, dark ? 'rgba(70,60,48,0.16)' : 'rgba(255,248,235,0.14)')
+    const a = color === 'plywood' || color === 'white' ? 0.03 : 0.05
+    g.addColorStop(0, r() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`)
     g.addColorStop(1, 'rgba(0,0,0,0)')
     c.fillStyle = g
-    for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) {
-      c.save()
-      c.translate(dx, dy)
-      c.fillRect(x - rad, y - rad, rad * 2, rad * 2)
-      c.restore()
+    c.fillRect(x - rad, y - rad, rad * 2, rad * 2)
+  }
+  if (color === 'plywood') {
+    // wood grain
+    for (let i = 0; i < 26; i++) {
+      const y = r() * size
+      c.strokeStyle = `rgba(120,80,40,${0.06 + r() * 0.08})`
+      c.lineWidth = 1 + r() * 2
+      c.beginPath()
+      for (let x = 0; x <= size; x += 16) c.lineTo(x, y + Math.sin(x * 0.03 + i) * 3)
+      c.stroke()
     }
   }
-  // speckle
   const img = c.getImageData(0, 0, size, size)
   for (let i = 0; i < img.data.length; i += 4) {
-    const n = (r() - 0.5) * 22
+    const n = (r() - 0.5) * 8
     img.data[i] += n
     img.data[i + 1] += n
-    img.data[i + 2] += n * 0.9
+    img.data[i + 2] += n
   }
   c.putImageData(img, 0, 0)
-  // bedding lines and cracks
-  c.lineCap = 'round'
-  for (let i = 0; i < 14; i++) {
-    let x = r() * size, y = r() * size
-    c.strokeStyle = `rgba(55,48,40,${0.18 + r() * 0.25})`
-    c.lineWidth = 0.8 + r() * 1.8
-    c.beginPath()
-    c.moveTo(x, y)
-    const steps = 6 + Math.floor(r() * 10)
-    const dir = r() < 0.6 ? 0 : Math.PI / 2
-    for (let k = 0; k < steps; k++) {
-      x += Math.cos(dir) * (10 + r() * 20) + (r() - 0.5) * 12
-      y += Math.sin(dir) * (10 + r() * 20) + (r() - 0.5) * 12
-      c.lineTo(x, y)
-    }
-    c.stroke()
-    // highlight edge under the crack
-    c.strokeStyle = 'rgba(255,250,240,0.12)'
-    c.lineWidth = 1
-    c.stroke()
-  }
-  // lichen
-  for (let i = 0; i < 26; i++) {
-    const x = r() * size, y = r() * size
-    c.fillStyle = r() < 0.5 ? 'rgba(160,170,110,0.25)' : 'rgba(210,190,120,0.22)'
-    for (let k = 0; k < 6; k++) {
+  // bolt holes: a 5 x 5 grid of T-nuts
+  const step = size / 5
+  for (let i = 0; i < 5; i++)
+    for (let j = 0; j < 5; j++) {
+      const x = step * (i + 0.5), y = step * (j + 0.5)
+      c.fillStyle = wall.light ? 'rgba(40,40,40,0.35)' : 'rgba(0,0,0,0.45)'
       c.beginPath()
-      c.arc(x + (r() - 0.5) * 14, y + (r() - 0.5) * 10, 1.5 + r() * 4, 0, Math.PI * 2)
+      c.arc(x, y, 2.6, 0, Math.PI * 2)
+      c.fill()
+      c.fillStyle = wall.light ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.1)'
+      c.beginPath()
+      c.arc(x + 0.6, y + 1.2, 2.6, 0.2, Math.PI - 0.2)
       c.fill()
     }
-  }
+  // seams on two edges, so tiles join into a grid
+  c.fillStyle = wall.light ? 'rgba(0,0,0,0.16)' : 'rgba(0,0,0,0.38)'
+  c.fillRect(0, 0, size, 2)
+  c.fillRect(0, 0, 2, size)
+  c.fillStyle = wall.light ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.07)'
+  c.fillRect(0, 2, size, 1)
+  c.fillRect(2, 0, 1, size)
   return cv
 }
 
-export function grassTexture(): HTMLCanvasElement {
+/** Crash mat texture: padded blue foam with a seam. */
+export function matTexture(): HTMLCanvasElement {
   const cv = document.createElement('canvas')
   cv.width = 256
   cv.height = 64
   const c = cv.getContext('2d')!
-  const r = rng(99)
   const g = c.createLinearGradient(0, 0, 0, 64)
-  g.addColorStop(0, '#6E7A5A')
-  g.addColorStop(0.3, '#5B6649')
-  g.addColorStop(1, '#4A4436')
+  g.addColorStop(0, '#3E78C9')
+  g.addColorStop(0.18, '#2F62AE')
+  g.addColorStop(1, '#244C8A')
   c.fillStyle = g
   c.fillRect(0, 0, 256, 64)
-  for (let i = 0; i < 160; i++) {
-    const x = r() * 256, y = 14 + r() * 50
-    c.fillStyle = `rgba(${60 + r() * 50},${50 + r() * 40},${35 + r() * 30},0.5)`
-    c.fillRect(x, y, 1 + r() * 3, 1 + r() * 2)
+  c.fillStyle = 'rgba(255,255,255,0.25)'
+  c.fillRect(0, 0, 256, 2)
+  c.fillStyle = 'rgba(0,0,0,0.3)'
+  c.fillRect(254, 0, 2, 64)
+  const r = rng(5)
+  for (let i = 0; i < 200; i++) {
+    c.fillStyle = `rgba(255,255,255,${r() * 0.05})`
+    c.fillRect(r() * 256, 4 + r() * 60, 2, 2)
   }
   return cv
 }

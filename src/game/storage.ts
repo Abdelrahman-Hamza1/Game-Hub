@@ -3,6 +3,7 @@
 import { validRoute } from '../sim/routes'
 import type { Route } from '../sim/types'
 import type { Style } from './session'
+import type { WallColor } from '../render/textures'
 
 export interface Settings {
   name: string
@@ -18,6 +19,8 @@ export interface Settings {
   coachDone: string[]
   /** race the ghost of the route's fastest send */
   ghost: boolean
+  /** colour of the gym wall */
+  wall: WallColor
 }
 
 export interface LogEntry {
@@ -64,6 +67,7 @@ const DEFAULT_SETTINGS: Settings = {
   coach: true,
   coachDone: [],
   ghost: true,
+  wall: 'charcoal',
 }
 
 export function loadSettings(): Settings {

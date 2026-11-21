@@ -25,7 +25,7 @@ Every push to `main` runs `.github/workflows/deploy.yml`: test, build, publish `
   - `script.ts`: a scripted leader used by tests
 - `src/game/`: session (players, roles, energy, send styles, belay stars, day board, day awards), storage (settings/logbook), share codes, coach tips, ghost (records sends from snapshots, replays the fastest per route)
 - `src/net/net.ts`: Trystero (Nostr) rooms; first in hosts; host sends snapshots at 30 Hz, guests send inputs
-- `src/render/`: Canvas 2D renderer and procedural textures
+- `src/render/`: Canvas 2D renderer (an indoor gym: a route's holds share its grade-band tape colour from `routeTape`, other routes are faded decoys, wall colour is a setting) and procedural panel/mat textures
 - `src/input/input.ts`: keyboard + mouse to `InputFrame` (touch layer goes here later)
 - `src/main.ts`: app shell, screens, game loop
 

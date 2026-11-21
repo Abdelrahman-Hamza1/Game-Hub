@@ -18,7 +18,8 @@ import {
 } from './game/storage'
 import { LocalInput } from './input/input'
 import { lerpSnap, Net, newRoomCode, type Cmd } from './net/net'
-import { PALETTE, Renderer, type Toast } from './render/renderer'
+import { PALETTE, Renderer, routeTape, type Toast } from './render/renderer'
+import { WALLS, type WallColor } from './render/textures'
 import { ANGLE_LABEL, CALLS, GRADES, YDS } from './sim/constants'
 import { CRAG, randomRoute, validRoute } from './sim/routes'
 import type { InputFrame, Route } from './sim/types'
@@ -853,6 +854,7 @@ class App {
       <div class="form-row">
         <div class="field"><label for="s-name">Name</label><input id="s-name" maxlength="20" value="${esc(s.name)}"></div>
         <div class="field"><label for="s-mass">Weight (kg)</label><input id="s-mass" type="number" min="40" max="120" value="${s.mass}" style="width:90px"></div>
+        <div class="field"><label for="s-wall">Wall colour</label><select id="s-wall">${(Object.keys(WALLS) as WallColor[]).map((k) => `<option value="${k}" ${s.wall === k ? 'selected' : ''}>${WALLS[k].name}</option>`).join('')}</select></div>
         <div class="field"><label for="s-grades">Grades</label><select id="s-grades"><option value="french" ${s.grades === 'french' ? 'selected' : ''}>French (6a+)</option><option value="yds" ${s.grades === 'yds' ? 'selected' : ''}>YDS (5.10b)</option></select></div>
       </div>
       <label class="check"><input type="checkbox" id="s-autofeet" ${s.autoFeet ? 'checked' : ''}> Auto feet by default (easier for non-climbers)</label>
@@ -907,6 +909,9 @@ class App {
           this.coachShown = {}
           this.coachCounts = {}
         }
+        break
+      case 's-wall':
+        if (t.value in WALLS) s.wall = t.value as WallColor
         break
       case 's-ghost':
         s.ghost = t.checked
@@ -1094,17 +1099,7 @@ function belayHtml(b: NonNullable<Summary['belay']>): string {
   return `<div class="belay-card"><span class="kicker">Belay · ${esc(b.name)}</span>${stars(b.stars)}<span class="why">${bits.join(' · ')}</span></div>`
 }
 
-/** gym tape colours by grade band */
-function gradeBand(g: string): string {
-  const i = GRADES.indexOf(g)
-  const at = (x: string) => GRADES.indexOf(x)
-  if (i < at('6a')) return '#3FA34D'
-  if (i < at('6b')) return '#E0A800'
-  if (i < at('6c')) return '#0E8F9B'
-  if (i < at('7a')) return '#FF6B1A'
-  if (i < at('7b')) return '#D62839'
-  return '#7B5EA7'
-}
+const gradeBand = routeTape
 
 const svg = (body: string) => `<svg class="mode-icon" viewBox="0 0 48 48" aria-hidden="true">${body}</svg>`
 const ICON = {

@@ -2,12 +2,13 @@
 // them to screen pixels. Everything drawn comes from a Snap, so the host and
 // guests render the same way.
 
-import { ANGLE_LABEL, BODY, CALL_BY_ID, YDS } from '../sim/constants'
+import { ANGLE_LABEL, BODY, CALL_BY_ID, GRADES, YDS } from '../sim/constants'
 import type { Hold, Route } from '../sim/types'
 import type { Snap } from '../sim/world'
 import { belayerHome } from '../sim/world'
 import type { Settings } from '../game/storage'
-import { grassTexture, rockTexture } from './textures'
+import { matTexture, panelTexture, PANEL_M, WALLS, type WallColor } from './textures'
+import { rng } from '../sim/routes'
 import type { GhostPose } from '../game/ghost'
 import { fmtTime } from '../game/session'
 
@@ -18,14 +19,27 @@ export const PALETTE = [
   { shirt: '#E0A800', helmet: '#D62839', pants: '#33404A' },
 ]
 
-const HOLD_COLORS: Record<string, string> = {
-  jug: '#0E8F9B',
-  crimp: '#D62839',
-  sloper: '#7B5EA7',
-  pinch: '#E0A800',
-  pocket: '#1D2125',
-  foot: '#8A8478',
+/** Gym tape colours by grade band. A route's holds all share its colour, as in a real gym. */
+export function routeTape(grade: string): string {
+  const i = GRADES.indexOf(grade)
+  const at = (x: string) => GRADES.indexOf(x)
+  if (i < at('6a')) return '#3FA34D'
+  if (i < at('6b')) return '#F2B705'
+  if (i < at('6c')) return '#1FA6B4'
+  if (i < at('7a')) return '#FF6B1A'
+  if (i < at('7b')) return '#E0344A'
+  return '#9B6BD6'
 }
+const DECOY_COLORS = ['#3FA34D', '#F2B705', '#1FA6B4', '#FF6B1A', '#E0344A', '#9B6BD6', '#F4F4F2', '#E85D9E']
+
+function shade(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const f = (x: number) => Math.round(k >= 0 ? x + (255 - x) * k : x * (1 + k))
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`
+}
+
+/** HUD colours: white cards over the wall */
+const HUD = { card: 'rgba(255,255,255,0.95)', text: '#1D2125', muted: '#5D646B', track: '#E7EAED', good: '#0B7A85', warn: '#C2410C', bad: '#D62839', calm: '#1FA6B4' }
 
 const INK = '#1D2125'
 const ROPE = '#FF6B1A'
@@ -79,14 +93,16 @@ export class Renderer {
   private frameDt = 0
   /** drawn limb positions relative to the body, so steps and grabs animate instead of teleporting */
   private limbOff: [number, number][] | null = null
-  private rock: CanvasPattern
-  private grass: CanvasPattern
+  private panels = new Map<WallColor, CanvasPattern>()
+  private mats: CanvasPattern
+  private wall: WallColor = 'charcoal'
+  /** faded holds of other routes, per route */
+  private decoys: { id: string; holds: { x: number; y: number; type: Hold['type']; rot: number; col: string }[] } | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
     this.c = canvas.getContext('2d')!
-    this.rock = this.c.createPattern(rockTexture(), 'repeat')!
-    this.grass = this.c.createPattern(grassTexture(), 'repeat')!
+    this.mats = this.c.createPattern(matTexture(), 'repeat')!
     this.resize()
     window.addEventListener('resize', () => this.resize())
   }
@@ -139,6 +155,7 @@ export class Renderer {
       const a = this.shake
       c.translate((Math.random() - 0.5) * a, (Math.random() - 0.5) * a)
     }
+    this.wall = v.settings.wall in WALLS ? v.settings.wall : 'charcoal'
     this.drawBackdrop(v.route)
     this.drawCliff(v.route)
     this.drawGround()
@@ -162,72 +179,88 @@ export class Renderer {
 
   // ---------- scenery ----------
 
+  /** the gym hall behind and around the wall */
   private drawBackdrop(route: Route): void {
     const c = this.c
     const g = c.createLinearGradient(0, 0, 0, this.H)
-    g.addColorStop(0, '#7FA3C0')
-    g.addColorStop(0.6, '#C9D6DC')
-    g.addColorStop(1, '#E9DFCB')
+    g.addColorStop(0, '#15181C')
+    g.addColorStop(1, '#2A2F35')
     c.fillStyle = g
     c.fillRect(0, 0, this.W, this.H)
-    // distant ridges with parallax
-    const ridge = (par: number, base: number, amp: number, col: string, seed: number) => {
-      c.fillStyle = col
-      c.beginPath()
-      c.moveTo(0, this.H)
-      for (let x = 0; x <= this.W + 20; x += 20) {
-        const wx = (x - this.W / 2) / this.scale + this.camX * par
-        const y = base + amp * Math.sin(wx * 0.35 + seed) + amp * 0.5 * Math.sin(wx * 0.9 + seed * 2)
-        c.lineTo(x, this.H / 2 - (y - this.camY * par) * this.scale * 0.6)
-      }
-      c.lineTo(this.W, this.H)
-      c.fill()
+    // steel columns and roof trusses, a little parallax
+    const par = 0.5
+    c.fillStyle = '#23282E'
+    for (let wx = -40; wx < 60; wx += 6) {
+      const x = (wx - this.camX * par) * this.scale * 0.8 + this.W / 2
+      if (x < -40 || x > this.W + 40) continue
+      c.fillRect(x - 0.12 * this.scale, 0, 0.24 * this.scale, this.H)
     }
-    ridge(0.2, route.height * 0.55, 1.6, '#A9B9C2', 1)
-    ridge(0.4, route.height * 0.35, 1.2, '#93A49A', 3)
+    // ceiling lights above the wall
+    const ceil = this.sy(route.height + 3.2)
+    if (ceil > -40) {
+      for (let wx = -8; wx < 14; wx += 3.2) {
+        const x = this.sx(wx)
+        const lg = c.createRadialGradient(x, ceil, 2, x, ceil, 2.6 * this.scale)
+        lg.addColorStop(0, 'rgba(255,250,235,0.35)')
+        lg.addColorStop(1, 'rgba(255,250,235,0)')
+        c.fillStyle = lg
+        c.fillRect(x - 2.6 * this.scale, ceil - 2.6 * this.scale, 5.2 * this.scale, 5.2 * this.scale)
+        c.fillStyle = '#FFF8E6'
+        c.fillRect(x - 0.5 * this.scale, ceil - 3, this.scale, 5)
+      }
+    }
   }
 
-  private cliffEdge(y: number, side: number): number {
-    // irregular left and right edges of the crag
-    const base = side < 0 ? -6.5 : 10.5
-    return base + side * (0.6 * Math.sin(y * 0.7 + (side < 0 ? 1 : 4)) + 0.35 * Math.sin(y * 1.9))
+  /** wall edges in metres: the climbing wall is a wide flat face */
+  private wallX(side: number): number {
+    return side < 0 ? -6.5 : 10.5
+  }
+
+  private wallPattern(): CanvasPattern {
+    let p = this.panels.get(this.wall)
+    if (!p) {
+      p = this.c.createPattern(panelTexture(this.wall), 'repeat')!
+      this.panels.set(this.wall, p)
+    }
+    return p
   }
 
   private drawCliff(route: Route): void {
     const c = this.c
     const top = route.height + 2.5
-    c.beginPath()
-    c.moveTo(this.sx(this.cliffEdge(0, -1)), this.sy(-0.2))
-    for (let y = 0; y <= top; y += 0.5) c.lineTo(this.sx(this.cliffEdge(y, -1)), this.sy(y))
-    for (let x = this.cliffEdge(top, -1); x <= this.cliffEdge(top, 1); x += 0.5)
-      c.lineTo(this.sx(x), this.sy(top + 0.4 * Math.sin(x * 1.3) + 0.2 * Math.sin(x * 3.1)))
-    for (let y = top; y >= 0; y -= 0.5) c.lineTo(this.sx(this.cliffEdge(y, 1)), this.sy(y))
-    c.lineTo(this.sx(this.cliffEdge(0, 1)), this.sy(-0.2))
-    c.closePath()
+    const x0 = this.sx(this.wallX(-1)), x1 = this.sx(this.wallX(1))
+    const y0 = this.sy(top), y1 = this.sy(0) + 2
     c.save()
-    const m = new DOMMatrix()
-      .translate(this.sx(0), this.sy(0))
-      .scale(this.scale / 260, this.scale / 260)
-    this.rock.setTransform(m)
-    c.fillStyle = this.rock
-    c.fill()
-    // the steeper the wall, the deeper the shade
-    const shade = { slab: 0, vertical: 0.05, overhang: 0.16, steep: 0.26, roof: 0.34 }[route.angle] ?? 0
-    if (shade > 0) {
-      const g = c.createLinearGradient(0, this.sy(top), 0, this.sy(0))
-      g.addColorStop(0, `rgba(20,24,30,${shade * 1.3})`)
-      g.addColorStop(1, `rgba(20,24,30,${shade * 0.4})`)
+    const pat = this.wallPattern()
+    pat.setTransform(new DOMMatrix().translate(this.sx(0), this.sy(0)).scale((PANEL_M * this.scale) / 256, (PANEL_M * this.scale) / 256))
+    c.fillStyle = pat
+    c.fillRect(x0, y0, x1 - x0, y1 - y0)
+    // light from the ceiling, and the steeper the wall the deeper the shade
+    const light = c.createLinearGradient(0, y0, 0, y1)
+    light.addColorStop(0, 'rgba(255,250,235,0.1)')
+    light.addColorStop(1, 'rgba(0,0,0,0.12)')
+    c.fillStyle = light
+    c.fillRect(x0, y0, x1 - x0, y1 - y0)
+    const shadeK = { slab: 0, vertical: 0.04, overhang: 0.12, steep: 0.2, roof: 0.28 }[route.angle] ?? 0
+    if (shadeK > 0) {
+      const g = c.createLinearGradient(0, y0, 0, y1)
+      g.addColorStop(0, `rgba(10,12,16,${shadeK * 1.3})`)
+      g.addColorStop(1, `rgba(10,12,16,${shadeK * 0.3})`)
       c.fillStyle = g
-      c.fill()
+      c.fillRect(x0, y0, x1 - x0, y1 - y0)
     }
-    c.lineWidth = 3
-    c.strokeStyle = 'rgba(40,36,30,0.55)'
-    c.stroke()
+    // the wall's top lip and side edges
+    c.fillStyle = '#1B1F24'
+    c.fillRect(x0 - 6, y0 - 10, x1 - x0 + 12, 12)
+    c.fillRect(x0 - 6, y0, 6, y1 - y0)
+    c.fillRect(x1, y0, 6, y1 - y0)
     c.restore()
-    // height ticks along the left of the route, like a topo
+    this.drawVolumes(route)
+    // height ticks along the left of the route, like a gym's metre marks
+    const light2 = WALLS[this.wall].light
     c.font = `600 11px ${MONO}`
-    c.fillStyle = 'rgba(29,33,37,0.55)'
-    c.strokeStyle = 'rgba(29,33,37,0.35)'
+    c.fillStyle = light2 ? 'rgba(29,33,37,0.6)' : 'rgba(255,255,255,0.55)'
+    c.strokeStyle = light2 ? 'rgba(29,33,37,0.4)' : 'rgba(255,255,255,0.35)'
     c.lineWidth = 1
     for (let y = 2; y <= route.height; y += 2) {
       const x = this.sx(-0.35)
@@ -239,95 +272,149 @@ export class Renderer {
     }
   }
 
+  /** big wooden volumes bolted to the wall, away from the route */
+  private drawVolumes(route: Route): void {
+    const c = this.c
+    const r = rng((route.seed ?? 3) + 11)
+    const light = WALLS[this.wall].light
+    for (let k = 0; k < 4; k++) {
+      const side = k % 2 ? 1 : -1
+      const cx = side < 0 ? -1.6 - r() * 3.6 : route.width + 1.4 + r() * 3.5
+      const cy = 1.5 + r() * Math.max(1, route.height - 1)
+      const s = 0.45 + r() * 0.5
+      const pts: [number, number][] = [
+        [cx - s, cy - s * 0.6],
+        [cx + s * 0.9, cy - s * 0.8],
+        [cx + s * 0.3, cy + s * 0.9],
+      ]
+      const mid: [number, number] = [cx + (r() - 0.5) * s * 0.4, cy]
+      const faces: [number, number][][] = [
+        [pts[0], pts[1], mid],
+        [pts[1], pts[2], mid],
+        [pts[2], pts[0], mid],
+      ]
+      const base = light ? '#B9C2CA' : '#454C55'
+      faces.forEach((f, i) => {
+        c.fillStyle = shade(base, [0.12, -0.25, 0][i])
+        c.beginPath()
+        f.forEach((p, j) => (j ? c.lineTo(this.sx(p[0]), this.sy(p[1])) : c.moveTo(this.sx(p[0]), this.sy(p[1]))))
+        c.closePath()
+        c.fill()
+      })
+    }
+  }
+
+  /** crash mats along the bottom of the wall */
   private drawGround(): void {
     const c = this.c
     const y0 = this.sy(0)
     if (y0 > this.H) return
     c.save()
-    const m = new DOMMatrix().translate(this.sx(0), y0 - 8).scale(this.scale / 80, this.scale / 80)
-    this.grass.setTransform(m)
-    c.fillStyle = this.grass
-    c.fillRect(0, y0 - 6, this.W, this.H - y0 + 6)
-    // grass tufts along the top edge
-    c.strokeStyle = '#5B6649'
-    c.lineWidth = 2
-    for (let wx = Math.floor(this.camX - 20); wx < this.camX + 20; wx += 0.23) {
-      const x = this.sx(wx)
-      if (x < -10 || x > this.W + 10) continue
-      const hgt = 4 + 4 * Math.abs(Math.sin(wx * 12.9898))
-      c.beginPath()
-      c.moveTo(x, y0)
-      c.lineTo(x - 2, y0 - hgt)
-      c.moveTo(x + 1, y0)
-      c.lineTo(x + 3, y0 - hgt * 0.8)
-      c.stroke()
-    }
+    c.fillStyle = '#1B1F24'
+    c.fillRect(0, y0, this.W, this.H - y0)
+    const x0 = Math.max(0, this.sx(this.wallX(-1) - 1)), x1 = Math.min(this.W, this.sx(this.wallX(1) + 1))
+    const m = new DOMMatrix().translate(this.sx(0), y0).scale(this.scale / 60, this.scale / 60)
+    this.mats.setTransform(m)
+    c.fillStyle = this.mats
+    c.fillRect(x0, y0 - 4, x1 - x0, Math.min(this.H - y0 + 4, 0.55 * this.scale + 4))
     c.restore()
   }
 
   // ---------- holds and gear ----------
 
-  private drawHold(h: Hold, highlight: string | null): void {
+  private holdPath(type: Hold['type'], s: number): void {
+    const c = this.c
+    c.beginPath()
+    switch (type) {
+      case 'jug':
+        c.moveTo(-0.1 * s, 0.01 * s)
+        c.quadraticCurveTo(-0.09 * s, -0.075 * s, 0, -0.07 * s)
+        c.quadraticCurveTo(0.09 * s, -0.075 * s, 0.1 * s, 0.01 * s)
+        c.quadraticCurveTo(0, 0.07 * s, -0.1 * s, 0.01 * s)
+        break
+      case 'crimp':
+        c.roundRect(-0.08 * s, -0.022 * s, 0.16 * s, 0.044 * s, 0.012 * s)
+        break
+      case 'sloper':
+        c.moveTo(-0.1 * s, 0.03 * s)
+        c.bezierCurveTo(-0.09 * s, -0.1 * s, 0.09 * s, -0.1 * s, 0.1 * s, 0.03 * s)
+        c.closePath()
+        break
+      case 'pinch':
+        c.roundRect(-0.032 * s, -0.08 * s, 0.064 * s, 0.16 * s, 0.03 * s)
+        break
+      case 'pocket':
+        c.arc(0, 0, 0.07 * s, 0, Math.PI * 2)
+        break
+      default:
+        c.ellipse(0, 0, 0.045 * s, 0.026 * s, 0, 0, Math.PI * 2)
+    }
+  }
+
+  /** a bolt-on hold: shaded plastic in the route's colour, shape by type */
+  private drawHold(h: Hold, highlight: string | null, col: string, alpha = 1, label = true): void {
     const c = this.c
     const s = this.scale * 1.35
     const x = this.sx(h.x), y = this.sy(h.y)
     c.save()
+    c.globalAlpha = alpha
     c.translate(x, y)
     c.rotate((h.rot * Math.PI) / 180)
-    c.fillStyle = HOLD_COLORS[h.type] ?? '#888'
-    c.strokeStyle = 'rgba(0,0,0,0.55)'
-    c.lineWidth = 1.2
-    c.shadowColor = 'rgba(0,0,0,0.35)'
-    c.shadowBlur = 4
-    c.shadowOffsetY = 2
-    c.beginPath()
-    switch (h.type) {
-      case 'jug':
-        c.ellipse(0, 0, 0.085 * s, 0.05 * s, 0, 0, Math.PI * 2)
-        break
-      case 'crimp':
-        c.rect(-0.075 * s, -0.018 * s, 0.15 * s, 0.036 * s)
-        break
-      case 'sloper':
-        c.arc(0, 0.025 * s, 0.085 * s, Math.PI, 0)
-        c.closePath()
-        break
-      case 'pinch':
-        c.roundRect(-0.028 * s, -0.075 * s, 0.056 * s, 0.15 * s, 0.028 * s)
-        break
-      case 'pocket':
-        c.arc(0, 0, 0.065 * s, 0, Math.PI * 2)
-        break
-      default:
-        c.ellipse(0, 0, 0.042 * s, 0.022 * s, 0, 0, Math.PI * 2)
-    }
+    // drop shadow on the wall
+    c.save()
+    c.translate(0.012 * s, 0.022 * s)
+    this.holdPath(h.type, s)
+    c.fillStyle = 'rgba(0,0,0,0.35)'
     c.fill()
-    c.shadowColor = 'transparent'
+    c.restore()
+    this.holdPath(h.type, s)
+    const r = 0.1 * s
+    const g = c.createRadialGradient(-r * 0.4, -r * 0.5, r * 0.05, 0, 0, r * 1.2)
+    g.addColorStop(0, shade(col, 0.45))
+    g.addColorStop(0.5, col)
+    g.addColorStop(1, shade(col, -0.35))
+    c.fillStyle = g
+    c.fill()
+    c.strokeStyle = shade(col, -0.5)
+    c.lineWidth = 1
     c.stroke()
+    // the grip: a dark cavity under a jug's lip, the hole of a pocket
     if (h.type === 'jug') {
-      c.strokeStyle = 'rgba(255,255,255,0.45)'
+      c.fillStyle = shade(col, -0.55)
       c.beginPath()
-      c.ellipse(0, -0.012 * s, 0.055 * s, 0.022 * s, 0, Math.PI * 1.1, Math.PI * 1.9)
-      c.stroke()
+      c.ellipse(0, 0.012 * s, 0.06 * s, 0.018 * s, 0, 0, Math.PI)
+      c.fill()
+    } else if (h.type === 'pocket') {
+      c.fillStyle = shade(col, -0.6)
+      c.beginPath()
+      c.ellipse(0, 0.01 * s, 0.035 * s, 0.024 * s, 0, 0, Math.PI * 2)
+      c.fill()
+    } else if (h.type === 'crimp') {
+      c.fillStyle = shade(col, 0.5)
+      c.fillRect(-0.07 * s, -0.02 * s, 0.14 * s, 0.008 * s)
     }
-    if (h.type === 'pocket') {
-      c.fillStyle = '#5a5248'
+    // the bolt
+    if (h.type !== 'foot' && h.type !== 'pocket' && h.type !== 'crimp') {
+      c.fillStyle = 'rgba(20,20,20,0.6)'
       c.beginPath()
-      c.ellipse(0, 0.008 * s, 0.032 * s, 0.022 * s, 0, 0, Math.PI * 2)
+      c.arc(0, -0.02 * s, Math.max(1.2, 0.009 * s), 0, Math.PI * 2)
       c.fill()
     }
     c.restore()
-    if (h.role) {
-      c.fillStyle = '#F8F8F6'
-      c.strokeStyle = INK
-      c.lineWidth = 1
-      c.font = `700 10px ${MONO}`
-      const label = h.role === 'top' ? 'TOP' : 'S'
-      const w = c.measureText(label).width + 8
-      c.fillRect(x - w / 2, y + 0.07 * s, w, 13)
-      c.strokeRect(x - w / 2, y + 0.07 * s, w, 13)
-      c.fillStyle = INK
-      c.fillText(label, x - w / 2 + 4, y + 0.07 * s + 10)
+    if (h.role && alpha === 1) {
+      // start and top tape, in the route's colour
+      const text = label ? (h.role === 'top' ? 'TOP' : 'START') : ''
+      c.font = `700 9px ${MONO}`
+      const w = text ? c.measureText(text).width + 10 : 16
+      const ty = y + 0.075 * s
+      c.save()
+      c.translate(x, ty + 6)
+      c.rotate(-0.06)
+      c.fillStyle = col
+      c.fillRect(-w / 2, -6, w, 13)
+      c.fillStyle = 'rgba(0,0,0,0.75)'
+      if (text) c.fillText(text, -w / 2 + 5, 4)
+      c.restore()
     }
     if (highlight) {
       c.strokeStyle = highlight
@@ -336,6 +423,30 @@ export class Renderer {
       c.arc(x, y, 0.13 * s, 0, Math.PI * 2)
       c.stroke()
     }
+  }
+
+  /** other routes' holds, faded, so the wall looks like a real gym wall */
+  private decoyHolds(route: Route) {
+    if (this.decoys?.id === route.id) return this.decoys.holds
+    const r = rng((route.seed ?? 1) * 7 + 3)
+    const mine = routeTape(route.grade)
+    const cols = DECOY_COLORS.filter((x) => x !== mine)
+    const types: Hold['type'][] = ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'foot']
+    const holds: { x: number; y: number; type: Hold['type']; rot: number; col: string }[] = []
+    const lanes = 6
+    for (let lane = 0; lane < lanes; lane++) {
+      // each decoy route is a wandering line of one colour
+      const col = cols[lane % cols.length]
+      let x = this.wallX(-1) + 0.8 + lane * ((this.wallX(1) - this.wallX(-1) - 1.6) / (lanes - 1)) + (r() - 0.5) * 0.6
+      for (let y = 0.4 + r() * 0.4; y < route.height + 1.6; y += 0.35 + r() * 0.45) {
+        x += (r() - 0.5) * 0.5
+        const clash = route.holds.some((o) => Math.hypot(o.x - x, o.y - y) < 0.5) || route.bolts.some(([bx, by]) => Math.hypot(bx - x, by - y) < 0.4)
+        if (clash) continue
+        holds.push({ x, y, type: types[Math.floor(r() * types.length)], rot: Math.round((r() - 0.5) * 60), col })
+      }
+    }
+    this.decoys = { id: route.id, holds }
+    return holds
   }
 
   private drawHolds(v: RenderView): void {
@@ -358,9 +469,19 @@ export class Renderer {
     })
     const top = this.camY + this.H / 2 / this.scale + 0.5
     const bottom = this.camY - this.H / 2 / this.scale - 0.5
+    const decoyAlpha = WALLS[this.wall].light ? 0.4 : 0.3
+    for (const h of this.decoyHolds(route)) {
+      if (h.y < bottom || h.y > top) continue
+      this.drawHold(h, null, h.col, decoyAlpha)
+    }
+    const col = routeTape(route.grade)
+    let startLabel = false
     route.holds.forEach((h, i) => {
       if (h.y < bottom || h.y > top) return
-      this.drawHold(h, targets.has(i) ? '#FFFFFF' : null)
+      // the two start holds share one START label
+      const label = h.role !== 'start' || !startLabel
+      if (h.role === 'start') startLabel = true
+      this.drawHold(h, targets.has(i) ? '#FFFFFF' : null, col, 1, label)
     })
     // foot hints for the local leader
     if (v.localLeader) {
@@ -545,11 +666,15 @@ export class Renderer {
     shakeHands: [boolean, boolean],
     now: number,
     palOverride?: { shirt: string; helmet: string; pants: string },
+    /** draw everything in one colour (a shadow on the wall) */
+    mono?: string,
   ): void {
     const c = this.c
     const s = this.scale
-    const pal = palOverride ?? PALETTE[colorIdx % PALETTE.length]
-    const skin = '#D9B99B'
+    const pal = mono ? { shirt: mono, helmet: mono, pants: mono } : palOverride ?? PALETTE[colorIdx % PALETTE.length]
+    const skin = mono ?? '#D9B99B'
+    const ink = mono ?? INK
+    const bag = mono ?? '#F8F8F6'
     const wLimb = Math.max(4, 0.09 * s)
     // legs
     for (let i = 0; i < 2; i++) {
@@ -559,7 +684,7 @@ export class Renderer {
       const knee = this.ik(hip[0], hip[1], f[0], f[1], BODY.thigh, BODY.shin, side > 0 ? 1 : -1)
       this.limb([hip, knee, f], wLimb * 1.15, pal.pants)
       // shoe
-      c.fillStyle = INK
+      c.fillStyle = ink
       c.beginPath()
       c.ellipse(this.sx(f[0] + side * 0.03), this.sy(f[1]), 0.06 * s, 0.03 * s, 0, 0, Math.PI * 2)
       c.fill()
@@ -581,13 +706,13 @@ export class Renderer {
     c.lineWidth = 1
     c.stroke()
     // harness and chalk bag
-    c.strokeStyle = INK
+    c.strokeStyle = ink
     c.lineWidth = Math.max(3, 0.05 * s)
     c.beginPath()
     c.moveTo(this.sx(pelvis[0] - px * 0.13), this.sy(pelvis[1] - py * 0.13 + 0.03))
     c.lineTo(this.sx(pelvis[0] + px * 0.13), this.sy(pelvis[1] + py * 0.13 + 0.03))
     c.stroke()
-    c.fillStyle = '#F8F8F6'
+    c.fillStyle = bag
     c.beginPath()
     c.roundRect(this.sx(pelvis[0] - 0.04), this.sy(pelvis[1] + 0.0), 0.08 * s, 0.09 * s, 0.02 * s)
     c.fill()
@@ -652,19 +777,19 @@ export class Renderer {
     c.font = `700 20px ${MONO}`
     const mw = c.measureText(main).width
     let sub = ''
-    let subCol = '#C9CCC7'
+    let subCol = HUD.muted
     if (g) {
       const d = snap.c.pelvis[1] - g.pose.pelvis[1]
       if (snap.topT >= 0) {
         const diff = snap.topT - g.time
         sub = `${diff <= 0 ? 'beat' : 'missed'} ${g.name}'s ${fmtTime(g.time)} by ${Math.abs(diff).toFixed(1)} s`
-        subCol = diff <= 0 ? '#9FE3EA' : '#FF8A95'
+        subCol = diff <= 0 ? HUD.good : HUD.bad
       } else if (t > g.time) {
         sub = `${g.name}'s ghost topped at ${fmtTime(g.time)}`
-        subCol = '#FF8A95'
+        subCol = HUD.bad
       } else {
         sub = `ghost ${g.name} · ${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} m`
-        subCol = d >= 0 ? '#9FE3EA' : '#FFB27A'
+        subCol = d >= 0 ? HUD.good : HUD.warn
       }
     }
     c.font = `600 11px ${MONO}`
@@ -675,7 +800,7 @@ export class Renderer {
     this.panel(x, 14, w, h)
     c.textAlign = 'center'
     c.font = `700 20px ${MONO}`
-    c.fillStyle = snap.topT >= 0 ? '#9FE3EA' : '#fff'
+    c.fillStyle = snap.topT >= 0 ? HUD.good : HUD.text
     c.fillText(main, this.W / 2, 38)
     if (sub) {
       c.font = `600 11px ${MONO}`
@@ -693,6 +818,12 @@ export class Renderer {
     const wob = (l: [number, number, number, number], i: number, amp: number): [number, number] =>
       flail && l[2] === 0 ? [l[0] + Math.sin(v.now * 17 + i * 2.1) * amp, l[1] + Math.cos(v.now * 13 + i * 1.7) * amp] : [l[0], l[1]]
     const limbs = this.smoothLimbs(sn.chest, sn.pelvis, [...sn.hands.map((h, i) => wob(h, i, 0.12)), ...sn.feet.map((f, i) => wob(f, i + 2, 0.08))])
+    // a soft shadow on the wall behind the climber
+    const off = (p: [number, number]): [number, number] => [p[0] + 0.07, p[1] - 0.06]
+    this.c.save()
+    this.c.globalAlpha = 0.22
+    this.drawPerson(off(sn.chest), off(sn.pelvis), limbs.slice(0, 2).map(off), limbs.slice(2).map(off), 0, [false, false], v.now, undefined, '#000')
+    this.c.restore()
     this.drawPerson(
       sn.chest,
       sn.pelvis,
@@ -909,11 +1040,35 @@ export class Renderer {
 
   // ---------- HUD ----------
 
-  private panel(x: number, y: number, w: number, h: number): void {
+  private panel(x: number, y: number, w: number, h: number, stripe?: string): void {
     const c = this.c
-    c.fillStyle = 'rgba(29,33,37,0.86)'
+    c.fillStyle = 'rgba(0,0,0,0.28)'
     c.beginPath()
-    c.roundRect(x, y, w, h, 6)
+    c.roundRect(x + 1, y + 3, w, h, 10)
+    c.fill()
+    c.fillStyle = HUD.card
+    c.beginPath()
+    c.roundRect(x, y, w, h, 10)
+    c.fill()
+    if (stripe) {
+      c.fillStyle = stripe
+      c.beginPath()
+      c.roundRect(x, y, 7, h, [10, 0, 0, 10])
+      c.fill()
+    }
+  }
+
+  /** a rounded meter bar */
+  private bar(x: number, y: number, w: number, frac: number, col: string): void {
+    const c = this.c
+    c.fillStyle = HUD.track
+    c.beginPath()
+    c.roundRect(x, y, w, 11, 5.5)
+    c.fill()
+    if (frac <= 0) return
+    c.fillStyle = col
+    c.beginPath()
+    c.roundRect(x, y, Math.max(11, w * Math.min(1, frac)), 11, 5.5)
     c.fill()
   }
 
@@ -922,82 +1077,80 @@ export class Renderer {
     const { route, snap } = v
     const yds = v.settings.grades === 'yds'
     const grade = yds ? YDS[route.grade] ?? route.grade : route.grade
+    const tape = routeTape(route.grade)
     // route card, top left
-    this.panel(14, 14, 250, 74)
-    c.fillStyle = '#fff'
+    this.panel(14, 14, 256, 74, tape)
+    c.fillStyle = HUD.text
     c.font = `900 24px ${DISPLAY}`
-    c.fillText(route.name.toUpperCase(), 26, 42)
-    c.font = `600 12px ${MONO}`
-    c.fillStyle = '#FFB27A'
-    c.fillText(`${grade} · ${ANGLE_LABEL[route.angle]}`, 26, 60)
-    c.fillStyle = '#C9CCC7'
+    c.fillText(route.name.toUpperCase(), 32, 42)
+    c.font = `600 12px ${BODY_FONT}`
+    c.fillStyle = HUD.muted
+    c.fillText(`${grade} · ${ANGLE_LABEL[route.angle]}`, 32, 60)
     const hp = snap.topped ? route.anchor[1] : Math.max(0, snap.high)
-    c.fillText(`high ${hp.toFixed(1)} / ${route.anchor[1].toFixed(0)} m · falls ${snap.falls}`, 26, 77)
+    c.font = `600 11px ${MONO}`
+    c.fillText(`high ${hp.toFixed(1)} / ${route.anchor[1].toFixed(0)} m · falls ${snap.falls}`, 32, 77)
     if (snap.weighted && !snap.topped) {
-      c.fillStyle = '#FF8A95'
-      c.fillText('not a send', 186, 60)
+      c.font = `700 11px ${BODY_FONT}`
+      c.fillStyle = HUD.bad
+      c.fillText('not a send', 196, 60)
     }
 
     // leader panel, bottom left
     const sn = snap.c
     const by = this.H - 108
     this.panel(14, by, 270, 94)
-    c.font = `600 11px ${MONO}`
-    c.fillStyle = '#C9CCC7'
-    c.fillText(`PUMP · ${v.leader.name}`, 26, by + 20)
+    c.font = `700 10px ${BODY_FONT}`
+    c.fillStyle = HUD.muted
+    c.fillText(`FOREARMS · ${v.leader.name.toUpperCase()}`, 26, by + 20)
     for (let i = 0; i < 2; i++) {
       const y = by + 30 + i * 18
-      c.fillStyle = '#fff'
-      c.fillText(i ? 'R' : 'L', 26, y + 10)
-      c.fillStyle = 'rgba(255,255,255,0.15)'
-      c.fillRect(42, y, 170, 11)
       const p = sn.pump[i]
-      c.fillStyle = p > 85 ? '#D62839' : p > 60 ? ROPE : '#5FD0DA'
-      c.fillRect(42, y, (170 * p) / 100, 11)
-      c.fillStyle = '#fff'
-      c.fillText(`${p}%`, 220, y + 10)
+      c.font = `700 11px ${BODY_FONT}`
+      c.fillStyle = HUD.text
+      c.fillText(i ? 'R' : 'L', 26, y + 10)
+      this.bar(42, y, 160, p / 100, p > 85 ? HUD.bad : p > 60 ? ROPE : '#2FA36B')
+      c.font = `600 11px ${MONO}`
+      c.fillStyle = HUD.text
+      c.fillText(`${p}%`, 210, y + 10)
       if (sn.chalk[i]) {
-        c.fillStyle = '#F8F8F6'
-        c.fillText('chalk', 250 - 18, y + 10)
+        c.fillStyle = HUD.muted
+        c.fillText('chalk', 238, y + 10)
       }
     }
-    c.fillStyle = '#9FE3EA'
+    c.font = `600 11px ${BODY_FONT}`
+    c.fillStyle = HUD.good
     const posture = `feet ${sn.feetOn} · drain ×${sn.mult.toFixed(2)}${sn.hipsIn ? ' · hips in' : ''}`
     c.fillText(posture, 26, by + 82)
-    if (sn.clip >= 0) {
-      c.fillStyle = 'rgba(255,255,255,0.15)'
-      c.fillRect(170, by + 72, 100, 10)
-      c.fillStyle = '#FFB27A'
-      c.fillRect(170, by + 72, 100 * Math.min(1, sn.clip), 10)
-    }
+    if (sn.clip >= 0) this.bar(170, by + 72, 100, sn.clip, ROPE)
 
     // belay panel, bottom right
     const bx = this.W - 284
     this.panel(bx, by, 270, 94)
-    c.fillStyle = '#C9CCC7'
-    c.fillText(`BELAY · ${v.belayer ? v.belayer.name : 'bot'}`, bx + 12, by + 20)
+    c.font = `700 10px ${BODY_FONT}`
+    c.fillStyle = HUD.muted
+    c.fillText(`BELAY · ${(v.belayer ? v.belayer.name : 'bot').toUpperCase()}`, bx + 12, by + 20)
     const kN = snap.T / 1000
     // "Watch me!" makes the tension meter stand out for the belayer
     if (snap.calls.some((k) => k.id === 7 && snap.t - k.t < 4)) {
       c.strokeStyle = ROPE
       c.lineWidth = 3
       c.beginPath()
-      c.roundRect(bx - 2, by - 2, 274, 98, 7)
+      c.roundRect(bx - 2, by - 2, 274, 98, 11)
       c.stroke()
-      c.fillStyle = '#FFB27A'
+      c.fillStyle = HUD.warn
       c.fillText('WATCH ME', bx + 186, by + 20)
     }
-    c.fillStyle = '#fff'
+    c.font = `600 11px ${BODY_FONT}`
+    c.fillStyle = HUD.text
     c.fillText('rope', bx + 12, by + 42)
-    c.fillStyle = 'rgba(255,255,255,0.15)'
-    c.fillRect(bx + 56, by + 32, 150, 11)
-    c.fillStyle = kN > 5 ? '#D62839' : kN > 3.6 ? ROPE : '#5FD0DA'
-    c.fillRect(bx + 56, by + 32, Math.min(150, (150 * kN) / 7), 11)
-    c.fillStyle = '#fff'
-    c.fillText(`${kN.toFixed(1)} kN`, bx + 212, by + 42)
+    this.bar(bx + 50, by + 32, 152, kN / 7, kN > 5 ? HUD.bad : kN > 3.6 ? ROPE : HUD.calm)
+    c.font = `600 11px ${MONO}`
+    c.fillStyle = HUD.text
+    c.fillText(`${kN.toFixed(1)} kN`, bx + 210, by + 42)
     c.fillText(`slack ${snap.slack.toFixed(1)} m`, bx + 12, by + 62)
     const modeText: Record<string, string> = { idle: 'holding', feed: 'feeding ↓', take: 'taking in ↑', lock: snap.b.soft ? 'soft catch' : 'locked' }
-    c.fillStyle = snap.b.mode === 'lock' ? '#FF8A95' : '#9FE3EA'
+    c.font = `700 11px ${BODY_FONT}`
+    c.fillStyle = snap.b.mode === 'lock' ? HUD.bad : HUD.good
     c.fillText(modeText[snap.b.mode] ?? snap.b.mode, bx + 140, by + 62)
     // prompts for the belayer
     let prompt = ''
@@ -1012,11 +1165,11 @@ export class Renderer {
     else if (snap.slack < 0.15 && snap.high > 2) prompt = 'Tight! Feed ↓ or you short-rope'
     else if (snap.slack > 1.8 && sn.pelvis[1] < 6 && sn.pelvis[1] > 2 && !snap.topped) prompt = 'Too much slack! Pull in ↑'
     if (prompt && (v.localBelayer || !v.belayer)) {
-      c.fillStyle = snap.fall ? '#FF8A95' : '#FFB27A'
+      c.fillStyle = snap.fall ? HUD.bad : HUD.warn
       c.fillText(prompt, bx + 12, by + 82)
     }
     if (snap.b.alert > 0) {
-      c.fillStyle = '#FF8A95'
+      c.fillStyle = HUD.bad
       c.fillText('alert', bx + 220, by + 20)
     }
 
@@ -1032,7 +1185,7 @@ export class Renderer {
       const t = help.join('  ·  ')
       const w = c.measureText(t).width + 18
       this.panel(this.W / 2 - w / 2, this.H - 34, w, 22)
-      c.fillStyle = '#C9CCC7'
+      c.fillStyle = HUD.muted
       c.fillText(t, this.W / 2 - w / 2 + 9, this.H - 19)
     }
   }
@@ -1098,7 +1251,7 @@ export class Renderer {
     const x = this.W - 300, y = 56
     this.panel(x, y, 286, 206)
     c.font = `600 11px ${MONO}`
-    c.fillStyle = '#C9CCC7'
+    c.fillStyle = HUD.muted
     c.fillText('FALL READOUT (G to hide)', x + 12, y + 20)
     if (f) {
       const h = Math.max(0, f.h)
@@ -1120,13 +1273,13 @@ export class Renderer {
         `sim force     ${(f.peak / 1000).toFixed(1)} kN`,
         `catch         ${f.soft ? 'soft' : 'hard'} · ${f.result}`,
       ]
-      c.fillStyle = '#fff'
+      c.fillStyle = HUD.text
       lines.forEach((l, i) => c.fillText(l, x + 12, y + 42 + i * 16))
     } else {
-      c.fillStyle = '#fff'
+      c.fillStyle = HUD.text
       c.fillText('No falls yet.', x + 12, y + 42)
     }
-    c.fillStyle = '#9FE3EA'
+    c.fillStyle = HUD.good
     c.fillText(`sections ${sn.rope.T.map((t) => (t / 1000).toFixed(1)).join(' ')} kN`, x + 12, y + 196)
   }
 }
