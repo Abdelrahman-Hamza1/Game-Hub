@@ -73,8 +73,9 @@ state and its events (`world.events`, `world.log`).
 3. Write `src/solutions/<c>-<nn>.ts` with the dsl (`go`, `to`, `at`, `wait`, `until`, `use`,
    `face`). `npm test` validates the level and plays the solution: it must win within par with a
    second to spare.
-4. Tuning tip: copy `tests/tmp/trace.ts` style traces (guard positions every 0.25 s) and grid-search
-   wait times in a scratch test under `tests/tmp/`.
+4. Tuning: trace guard positions every 0.25 s and grid-search wait times in a scratch test under
+   `tests/tmp/` (git-ignored). Then search for plans with one loop fewer than par (skip a role, or
+   give one copy two jobs) and make sure none win, unless DESIGN.md says an expert route exists.
 
 ## Testing in a browser
 
@@ -94,7 +95,8 @@ Push to `main`: the hub's `.github/workflows/deploy.yml` tests and builds every 
 - [x] M2 Timeline and planning: scrub (drag the ruler, `,` `.`), trim (drag a bar's ends or the bar), plan
       paths with a dot per second, markers with tooltips (upcoming ones faint while recording),
       detection explained in words and with a red line, also for the plan preview.
-- [ ] M3 Chapter 1 complete
+- [x] M3 Chapter 1 complete: windows, 1-6 to 1-F, results with ranks, title (with a demo heist),
+      heist map with blueprint thumbnails, progress saved
 - [ ] M4 Feel and audio
 - [ ] M5 Chapter 2
 - [ ] M6 Editor and sharing

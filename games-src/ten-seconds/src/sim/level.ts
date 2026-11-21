@@ -65,6 +65,10 @@ export interface GuardDef {
   face: number | null;
   /** seconds of patrol already walked when the loop starts (shifts the guard's timing) */
   warmup: number;
+  /** seconds standing at the spawn before setting off */
+  start: number;
+  /** per route point pause in seconds (overrides `pause` where given) */
+  pauses: number[];
 }
 
 export interface CameraDef {
@@ -154,8 +158,8 @@ export interface LevelJson {
   bodiesCollide?: boolean;
   doors?: Record<string, Partial<{ rule: DoorRule; wires: string[]; invert: boolean; open: [number, number]; period: number; openFor: number; phase: number }>>;
   triggers?: Record<string, Partial<{ type: TriggerType; seconds: number; bell: Pt; camera: number; on: boolean }>>;
-  guards?: Partial<{ route: Pt[]; mode: 'pingpong' | 'loop'; toward: number; pause: number; face: number; warmup: number }>[];
-  auditors?: Partial<{ route: Pt[]; mode: 'pingpong' | 'loop'; toward: number; pause: number; wait: number; face: number; warmup: number }>[];
+  guards?: Partial<{ route: Pt[]; mode: 'pingpong' | 'loop'; toward: number; pause: number; face: number; warmup: number; start: number; pauses: number[] }>[];
+  auditors?: Partial<{ route: Pt[]; mode: 'pingpong' | 'loop'; toward: number; pause: number; wait: number; face: number; warmup: number; start: number; pauses: number[] }>[];
   cameras?: Partial<{ from: number; to: number; period: number; phase: number }>[];
   lasers?: Partial<{ dir: Dir; period: number; on: number; phase: number }>[];
   lamps?: LampDef[];
@@ -322,7 +326,7 @@ export function parseLevel(id: string, text: string, json: LevelJson): Level {
     }
   }
 
-  const route = (spawn: Pt, j: Partial<{ route: Pt[]; mode: 'pingpong' | 'loop'; toward: number; pause: number; wait: number; face: number; warmup: number }>): GuardDef => {
+  const route = (spawn: Pt, j: Partial<{ route: Pt[]; mode: 'pingpong' | 'loop'; toward: number; pause: number; wait: number; face: number; warmup: number; start: number; pauses: number[] }>): GuardDef => {
     const r = j.route && j.route.length ? j.route : [spawn];
     return {
       x: spawn[0],
@@ -334,6 +338,8 @@ export function parseLevel(id: string, text: string, json: LevelJson): Level {
       wait: j.wait ?? 3,
       face: j.face === undefined ? null : j.face * DEG,
       warmup: j.warmup ?? 0,
+      start: j.start ?? 0,
+      pauses: j.pauses ?? [],
     };
   };
   guardSpawns.forEach((s, k) => lv.guards.push(route(s, json.guards?.[k] ?? {})));

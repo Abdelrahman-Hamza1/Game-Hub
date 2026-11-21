@@ -195,3 +195,18 @@ Judgment calls the brief didn't cover, or where it had to bend. Newest last.
 - **Hard-core crew size.** "Par + 1" means par + 1 loops in total, one spare.
 - **Door letters skip E.** The brief gives doors `A`–`F` and the exit `E`; `E` is always the exit,
   so doors are `A`–`D` and `F`–`H`, and triggers `a`–`h`.
+- **1-4 guard timing.** With the route as given, the guard's patrol left no window for a par run,
+  so his JSON starts him heading north part-way through his patrol (`toward`, `warmup`).
+- **1-7 Shift Change.** Two plain crossing patrols left the vault door free often enough for a
+  2-loop run. The day guard still patrols a diagonal, but the night guard comes on shift at 3 s
+  and watches the vault door, and the bell sits in a niche only he can hear. The runner must be
+  inside before he arrives, and he must be lured before the runner can leave. A search of about
+  7,800 two-loop plans finds none that win. Guards gained `start` (seconds at the spawn) and
+  per-point `pauses`.
+- **1-F The Ruby.** The airlock (A then B) needs two plate holders at the same moment. Doors C
+  (exit wing) and D (the bell closet) are `inverted` on both plates, so the catcher and the
+  bell-ringer must be in place before the plates go down. The gallery guard only hears the bell
+  late in his patrol. Like 1-5, an expert 4-loop route exists: both holders step off after the
+  airlock, one runs back to ring the bell, and the runner hides in the gallery's west end until
+  then.
+- **Targets can be named** (`targetName` in the JSON) for messages, such as "picks up the ruby".

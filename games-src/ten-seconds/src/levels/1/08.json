@@ -1,0 +1,8 @@
+{
+  "name": "Wrong Order",
+  "par": 3,
+  "swiftTime": 3.2,
+  "hint": "Plate b is inside the gem room, behind door A. A copy only gets through the doors that were open when you recorded it.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "B": { "rule": "plate", "wires": ["b"] } },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" } }
+}

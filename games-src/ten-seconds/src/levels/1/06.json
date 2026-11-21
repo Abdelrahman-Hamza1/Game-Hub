@@ -1,0 +1,7 @@
+{
+  "name": "Pass It On",
+  "par": 2,
+  "swiftTime": 6.0,
+  "hint": "Too far for one of you. Not too far for two. Use next to a window passes what you carry through it.",
+  "maxCopies": 6
+}

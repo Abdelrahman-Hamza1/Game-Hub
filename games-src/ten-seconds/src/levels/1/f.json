@@ -1,0 +1,18 @@
+{
+  "name": "The Ruby",
+  "par": 5,
+  "swiftTime": 7.8,
+  "targetName": "ruby",
+  "hint": "Five jobs: two plates that open the airlock together, the bell, the ruby up through the window, and someone upstairs to catch it. Doors C and D shut the moment a plate goes down, so be where you need to be before that.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "plate", "wires": ["b"] },
+    "C": { "rule": "inverted", "wires": ["a", "b"] },
+    "D": { "rule": "inverted", "wires": ["a", "b"] }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" }, "c": { "type": "lure" } },
+  "guards": [
+    { "route": [[3, 12], [3, 18]], "mode": "pingpong", "warmup": 3.3 },
+    { "route": [[10, 13], [37, 13]], "mode": "pingpong", "warmup": 0.5 }
+  ]
+}

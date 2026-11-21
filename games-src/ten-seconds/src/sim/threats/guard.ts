@@ -71,6 +71,10 @@ export function initGuard(w: World, def: GuardDef, index: number, auditor: boole
     alerted: false,
   };
   if (def.mode === 'pingpong' && def.route.length > 1 && def.toward === 0) g.dir = -1;
+  if (def.start > 0) {
+    g.mode = 'pause';
+    g.until = Math.round(def.start * HZ);
+  }
   if (auditor && w.newest >= 0) {
     const a = w.actors[w.newest];
     const [ex, ey] = endPoint(a.rec, w.lv.start[0] + 0.5, w.lv.start[1] + 0.5);
@@ -129,9 +133,10 @@ export function updateGuard(w: World, g: GuardState): void {
           if (g.routeI + g.dir < 0 || g.routeI + g.dir >= n) g.dir = g.dir === 1 ? -1 : 1;
           g.routeI += g.dir;
         }
-        if (def.pause > 0) {
+        const pause = def.pauses[arrivedAt(def, g)] ?? def.pause;
+        if (pause > 0) {
           g.mode = 'pause';
-          g.until = w.t + Math.round(def.pause * HZ);
+          g.until = w.t + Math.round(pause * HZ);
         }
       }
       break;
@@ -177,6 +182,13 @@ export function updateGuard(w: World, g: GuardState): void {
       break;
     }
   }
+}
+
+/** The route point the guard just reached (routeI already points at the next one). */
+function arrivedAt(def: GuardDef, g: GuardState): number {
+  const n = def.route.length;
+  if (def.mode === 'loop') return (g.routeI - 1 + n) % n;
+  return g.routeI - g.dir;
 }
 
 function startWait(w: World, g: GuardState): void {

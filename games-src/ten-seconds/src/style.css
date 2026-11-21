@@ -152,7 +152,7 @@ canvas.timeline { display: block; width: 100%; flex: none; touch-action: none; u
 .chapter h3 { margin: 0; font-family: var(--f-title); font-weight: 800; font-size: 20px; }
 .chapter header p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 14px; }
 .ch-done { font-family: var(--f-mono); color: var(--muted); font-size: 13px; grid-row: 1; grid-column: 3; }
-.level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .level-tile {
   appearance: none; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 2px;
   border-radius: 12px; padding: 10px 12px; border: 1px solid var(--line);
@@ -163,6 +163,8 @@ canvas.timeline { display: block; width: 100%; flex: none; touch-action: none; u
 .level-tile:disabled { cursor: not-allowed; opacity: 0.45; }
 .level-tile.done { border-color: rgba(91, 228, 155, 0.45); }
 .level-tile.finale { border-style: dashed; }
+.lt-thumb { width: 100%; height: 58px; object-fit: contain; image-rendering: pixelated; border-radius: 6px; background: #0b1a30; margin-bottom: 6px; opacity: 0.9; }
+.level-tile:disabled .lt-thumb { opacity: 0.5; }
 .lt-id { font-family: var(--f-mono); font-weight: 700; color: var(--gold); font-size: 12px; }
 .lt-name { font-weight: 700; line-height: 1.2; }
 .lt-meta { font-size: 12px; color: var(--muted); }

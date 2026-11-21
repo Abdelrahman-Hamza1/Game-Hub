@@ -1,0 +1,12 @@
+{
+  "name": "Shift Change",
+  "par": 3,
+  "swiftTime": 8.3,
+  "hint": "The night guard comes on at three and watches the vault door. Be inside before he gets there. The bell is out of the day guard's earshot: only the night guard will come.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "lure" } },
+  "guards": [
+    { "route": [[20, 1], [20, 5], [22, 6]], "mode": "pingpong", "toward": 1, "start": 3.0, "face": -90, "pauses": [0, 0, 60] },
+    { "route": [[8, 12], [16, 4]], "mode": "pingpong", "toward": 1, "warmup": 3.2 }
+  ]
+}

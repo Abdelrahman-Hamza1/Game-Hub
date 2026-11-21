@@ -5,6 +5,7 @@ import { CHAPTERS, type Chapter } from '../levels';
 import type { Level } from '../sim/level';
 import type { LevelBest, Progress, Settings } from '../storage';
 import { h } from './dom';
+import { levelThumb } from '../render/thumb';
 
 export function rankBadges(b: Pick<LevelBest, 'par' | 'clean' | 'swift'> | undefined, big = false): HTMLElement {
   const el = h('span', { class: `ranks${big ? ' big' : ''}` });
@@ -70,6 +71,7 @@ function chapterCard(c: Chapter, o: { progress: Progress; unlockAll: boolean; on
         'aria-label': `${lv.id} ${lv.name}${open ? '' : ' (locked)'}${best ? `, best ${best.loops} loops` : ''}`,
         onclick: () => o.onLevel(lv),
       },
+      h('img', { class: 'lt-thumb', src: levelThumb(lv, !open), alt: '', width: lv.w * 4, height: lv.h * 4 }),
       h('span', { class: 'lt-id' }, lv.id),
       h('span', { class: 'lt-name' }, open ? lv.name : 'Locked'),
       h('span', { class: 'lt-meta' }, best ? `${best.loops} loop${best.loops === 1 ? '' : 's'} · par ${lv.par}` : `par ${lv.par}`),

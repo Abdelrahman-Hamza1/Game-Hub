@@ -536,7 +536,7 @@ export class PlayScreen {
       h(
         'div',
         { class: 'hud-c' },
-        h('span', { class: 'hud-loop' }, s.selected >= 0 ? `Redo ${loopN}` : `Loop ${loopN}`),
+        h('span', { class: 'hud-loop' }, this.view === 'payoff' || this.view === 'won' ? 'The plan' : s.selected >= 0 ? `Redo ${loopN}` : `Loop ${loopN}`),
         h('span', { class: 'hud-clock', html: `${ring}<b>${left.toFixed(1)}</b>` }),
         stoneNext ? h('span', { class: 'chip stone' }, '5 s loop') : null,
       ),
