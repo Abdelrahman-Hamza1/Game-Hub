@@ -8,6 +8,8 @@ import type { Snap } from '../sim/world'
 import { belayerHome } from '../sim/world'
 import type { Settings } from '../game/storage'
 import { grassTexture, rockTexture } from './textures'
+import type { GhostPose } from '../game/ghost'
+import { fmtTime } from '../game/session'
 
 export const PALETTE = [
   { shirt: '#FF6B1A', helmet: '#1D2125', pants: '#3B4A5C' },
@@ -55,7 +57,11 @@ export interface RenderView {
   hud: boolean
   /** a coach tip for the local player, if any */
   coach?: string | null
+  /** the route's fastest send, replayed */
+  ghost?: { pose: GhostPose; name: string; time: number } | null
 }
+
+const GHOST_PAL = { shirt: '#F8F8F6', helmet: '#F8F8F6', pants: '#E4EAEE' }
 
 export class Renderer {
   readonly canvas: HTMLCanvasElement
@@ -67,6 +73,8 @@ export class Renderer {
   camY = 4
   scale = 70
   private shake = 0
+  /** pixels on the left covered by UI (the crag panel) */
+  padLeft = 0
   private lastNow = 0
   private frameDt = 0
   /** drawn limb positions relative to the body, so steps and grabs animate instead of teleporting */
@@ -106,7 +114,8 @@ export class Renderer {
 
   /** Camera follows the leader and keeps the ground in view when low. */
   follow(route: Route, chestY: number, dt: number, snapTo = false): void {
-    const tx = route.width / 2 - 0.5
+    // a side panel covering the left of the screen pushes the route right
+    const tx = route.width / 2 - 0.5 - this.padLeft / 2 / this.scale
     const half = this.H / 2 / this.scale
     const ty = Math.max(half - 0.9, Math.min(chestY + 0.6, route.height + 1 - half))
     const k = snapTo ? 1 : Math.min(1, dt * 4)
@@ -135,6 +144,7 @@ export class Renderer {
     this.drawGround()
     this.drawHolds(v)
     this.drawDraws(v)
+    this.drawGhost(v)
     this.drawSpectators(v)
     this.drawRope(v)
     this.drawBelayer(v)
@@ -534,10 +544,11 @@ export class Renderer {
     colorIdx: number,
     shakeHands: [boolean, boolean],
     now: number,
+    palOverride?: { shirt: string; helmet: string; pants: string },
   ): void {
     const c = this.c
     const s = this.scale
-    const pal = PALETTE[colorIdx % PALETTE.length]
+    const pal = palOverride ?? PALETTE[colorIdx % PALETTE.length]
     const skin = '#D9B99B'
     const wLimb = Math.max(4, 0.09 * s)
     // legs
@@ -604,6 +615,74 @@ export class Renderer {
     c.beginPath()
     c.arc(this.sx(hx), this.sy(hy + 0.015), 0.12 * s, Math.PI * 1.02, Math.PI * 1.98)
     c.fill()
+  }
+
+  private drawGhost(v: RenderView): void {
+    const g = v.ghost
+    if (!g) return
+    const c = this.c
+    const p = g.pose
+    c.save()
+    c.globalAlpha = 0.34
+    this.drawPerson(p.chest, p.pelvis, p.hands, p.feet, 0, [false, false], v.now, GHOST_PAL)
+    c.restore()
+    if (!v.hud) return
+    c.save()
+    c.globalAlpha = 0.75
+    c.font = `600 10px ${MONO}`
+    const t = `ghost · ${g.name}`
+    const w = c.measureText(t).width + 10
+    const sx = this.sx(p.chest[0]) - w / 2, sy = this.sy(p.chest[1] + 0.5)
+    c.fillStyle = 'rgba(248,248,246,0.8)'
+    c.beginPath()
+    c.roundRect(sx, sy - 11, w, 15, 3)
+    c.fill()
+    c.fillStyle = INK
+    c.fillText(t, sx + 5, sy)
+    c.restore()
+  }
+
+  /** attempt clock, top centre; races the ghost when there is one */
+  private drawTimer(v: RenderView): void {
+    const c = this.c
+    const { snap } = v
+    const t = snap.topT >= 0 ? snap.topT : snap.t
+    const g = v.ghost
+    const main = fmtTime(t)
+    c.font = `700 20px ${MONO}`
+    const mw = c.measureText(main).width
+    let sub = ''
+    let subCol = '#C9CCC7'
+    if (g) {
+      const d = snap.c.pelvis[1] - g.pose.pelvis[1]
+      if (snap.topT >= 0) {
+        const diff = snap.topT - g.time
+        sub = `${diff <= 0 ? 'beat' : 'missed'} ${g.name}'s ${fmtTime(g.time)} by ${Math.abs(diff).toFixed(1)} s`
+        subCol = diff <= 0 ? '#9FE3EA' : '#FF8A95'
+      } else if (t > g.time) {
+        sub = `${g.name}'s ghost topped at ${fmtTime(g.time)}`
+        subCol = '#FF8A95'
+      } else {
+        sub = `ghost ${g.name} · ${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)} m`
+        subCol = d >= 0 ? '#9FE3EA' : '#FFB27A'
+      }
+    }
+    c.font = `600 11px ${MONO}`
+    const sw = sub ? c.measureText(sub).width : 0
+    const w = Math.max(mw, sw) + 28
+    const h = sub ? 52 : 34
+    const x = this.W / 2 - w / 2
+    this.panel(x, 14, w, h)
+    c.textAlign = 'center'
+    c.font = `700 20px ${MONO}`
+    c.fillStyle = snap.topT >= 0 ? '#9FE3EA' : '#fff'
+    c.fillText(main, this.W / 2, 38)
+    if (sub) {
+      c.font = `600 11px ${MONO}`
+      c.fillStyle = subCol
+      c.fillText(sub, this.W / 2, 56)
+    }
+    c.textAlign = 'left'
   }
 
   private drawClimber(v: RenderView): void {
@@ -941,6 +1020,7 @@ export class Renderer {
       c.fillText('alert', bx + 220, by + 20)
     }
 
+    this.drawTimer(v)
     if (v.coach) this.drawCoach(v.coach)
 
     // help line, bottom centre

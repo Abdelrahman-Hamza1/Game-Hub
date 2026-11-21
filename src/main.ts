@@ -1,6 +1,7 @@
 import './style.css'
 import { sayCall, setAudio, sfx, unlockAudio } from './audio'
-import { BOT, crewBoard, findRoute, Session, type Lobby, type Summary } from './game/session'
+import { BOT, crewBoard, dayAwards, findRoute, fmtTime, Session, type Lobby, type Summary } from './game/session'
+import { GhostRecorder, ghostPose, loadGhost, offerGhost, type Ghost } from './game/ghost'
 import { decodeRoute, routeLink, baseUrl } from './game/share'
 import { coachTip, LEARNED_BY, SHOW_FOR } from './game/coach'
 import {
@@ -74,6 +75,11 @@ class App {
   previewRoute: Route | null = null
   previewPan = 0
   pendingRoute: Route | null = null
+  /** ghost beta: this attempt being recorded, and the ghost being raced */
+  recorder = new GhostRecorder()
+  ghost: Ghost | null = null
+  attemptKey = ''
+  ghostResult: { key: string; saved: boolean; prev: Ghost | null } | null = null
 
   constructor() {
     this.input.attach(this.canvas)
@@ -84,6 +90,10 @@ class App {
     window.addEventListener('pointerdown', () => unlockAudio(), { once: false })
     this.ui.addEventListener('click', (e) => this.onClick(e))
     this.ui.addEventListener('change', (e) => this.onChange(e))
+    this.ui.addEventListener('toggle', (e) => {
+      const d = e.target as HTMLDetailsElement
+      if (d.classList?.contains('day')) this.dayOpen = d.open
+    }, true)
     void this.readUrl()
     this.renderUi(true)
     requestAnimationFrame((t) => this.frame(t))
@@ -404,6 +414,8 @@ class App {
         this.previewPan = 0
       }
       stepWorld(this.preview, dt, emptyInput(), null)
+      const side = this.screen === 'game' ? (this.ui.querySelector('.side') as HTMLElement | null) : null
+      this.renderer.padLeft = side && innerWidth > 700 ? side.offsetWidth : 0
       route = want
       snap = snapshot(this.preview)
       this.previewPan += dt
@@ -411,9 +423,13 @@ class App {
       const y = 4 + (span / 2) * (1 - Math.cos(this.previewPan * 0.25))
       this.renderer.follow(route, y, dt)
     } else {
+      this.renderer.padLeft = 0
       this.processEvents(snap)
       this.renderer.follow(route, snap.c.chest[1], dt)
+      if (lobby!.phase === 'climb' && this.snap) this.recorder.push(this.snap)
     }
+    const ghost = playing && this.ghost && this.settings.ghost && snap ? this.ghost : null
+    const gp = ghost ? ghostPose(ghost, snap!.t) : null
     const players = lobby?.players ?? []
     const P = (id: string | null) => players.find((p) => p.id === id)
     const leaderP = playing ? P(lobby!.leader) : null
@@ -436,6 +452,7 @@ class App {
       latency: this.net && !this.net.isHost ? this.net.latency : null,
       hud: playing,
       coach: playing ? this.coachLine(snap, dt) : null,
+      ghost: gp && ghost ? { pose: gp, name: ghost.name, time: ghost.time } : null,
     })
   }
 
@@ -502,9 +519,20 @@ class App {
     const l = this.lobby
     if (!l) return
     if (l.routeId && l.phase !== 'crag') this.selectedRoute = l.routeId
-    if (l.phase === 'climb') {
+    const key = `${this.nonce}-${l.created}-${l.day}-${l.history.length}-${l.routeId}-${l.leader}`
+    if (l.phase === 'climb' && key !== this.attemptKey) {
+      // a new attempt: start recording, and bring out the ghost to race
+      this.attemptKey = key
+      this.recorder.reset()
+      this.ghost = l.routeId ? loadGhost(l.routeId) : null
       const route = findRoute(l, l.routeId)
+      this.renderer.padLeft = 0
       if (route) this.renderer.follow(route, this.snap?.c.chest[1] ?? 2, 1, true)
+    }
+    if (l.phase === 'summary' && l.summary?.sent && l.summary.time && this.ghostResult?.key !== this.attemptKey) {
+      const s = l.summary
+      const g = this.recorder.ghost(s.routeId, s.leaderName, s.time!)
+      this.ghostResult = g ? { key: this.attemptKey, ...offerGhost(g) } : { key: this.attemptKey, saved: false, prev: loadGhost(s.routeId) }
     }
     // log sends and attempts for players on this machine
     const s = l.summary
@@ -576,6 +604,7 @@ class App {
     <div class="menu"><div class="menu-inner">
       <div class="kicker">Co-op climbing · real rope work</div>
       <h1>Short<br><span>Rope</span></h1>
+      <svg class="squiggle" viewBox="0 0 320 24" aria-hidden="true"><path d="M2 14 C 30 2, 50 24, 80 12 S 130 2, 160 12 S 210 24, 240 12 S 290 2, 318 12" /></svg>
       <p class="lede">Lead, clip and climb one limb at a time while your friend feeds slack and catches your falls. The rope is simulated, so the way you'd work together at the crag is the way you win.</p>
       <div class="form-row">
         <div class="field"><label for="f-name">Your name</label><input id="f-name" maxlength="20" value="${esc(s.name)}" placeholder="e.g. Omar"></div>
@@ -583,9 +612,9 @@ class App {
         <div class="field"><label for="f-partner">Partner (same computer)</label><input id="f-partner" maxlength="20" value="${esc(this.partnerName)}"></div>
       </div>
       <div class="modes">
-        <button class="mode-card" data-act="solo"><b>Solo</b><span>You lead, a bot belays. Learn the moves.</span></button>
-        <button class="mode-card" data-act="local"><b>Two players</b><span>One computer: mouse climbs, arrow keys belay.</span></button>
-        <button class="mode-card hot" data-act="host"><b>Online room</b><span>Make a room and send the link to your crew.</span></button>
+        <button class="mode-card" data-act="solo">${ICON.solo}<b>Solo</b><span>You lead, a bot belays. Learn the moves.</span></button>
+        <button class="mode-card" data-act="local">${ICON.local}<b>Two players</b><span>One computer: mouse climbs, arrow keys belay.</span></button>
+        <button class="mode-card hot" data-act="host">${ICON.online}<b>Online room</b><span>Make a room and send the link to your crew.</span></button>
       </div>
       <div class="join">
         <label for="f-room">Join a room</label>
@@ -593,12 +622,23 @@ class App {
         <button class="btn dark" data-act="join">Join</button>
       </div>
       ${matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches ? '<p class="note"><b>On a phone?</b> Touch controls are coming later. For now, play on a computer with a mouse and keyboard.</p>' : ''}
+      ${this.menuStats()}
       <div class="links">
         <button class="btn small" data-act="modal-help">How to play</button>
         <button class="btn small" data-act="modal-log">Logbook</button>
         <button class="btn small" data-act="modal-settings">Settings</button>
       </div>
     </div></div>`
+  }
+
+  /** a line of personal stats under the menu, once there are some */
+  menuStats(): string {
+    const log = loadLog()
+    if (!log.length) return ''
+    const sends = log.filter((e) => e.style)
+    const hardest = sends.reduce<string | null>((a, e) => (!a || GRADES.indexOf(e.grade) > GRADES.indexOf(a) ? e.grade : a), null)
+    const metres = Math.round(log.reduce((a, e) => a + e.highPoint, 0))
+    return `<div class="menu-stats"><span><b>${log.length}</b> attempts</span><span><b>${sends.length}</b> sends</span><span><b>${metres}</b> m climbed</span>${hardest ? `<span>hardest <b>${esc(this.grade(hardest))}</b></span>` : ''}</div>`
   }
 
   connectingHtml(): string {
@@ -619,9 +659,10 @@ class App {
     const roles = this.defaultRoles()
     const routeCard = (r: Route) => {
       const tick = bestTick(r.id, this.me().name)
-      return `<button class="route ${r.id === sel.id ? 'on' : ''}" data-route="${esc(r.id)}">
+      const g = loadGhost(r.id)
+      return `<button class="route ${r.id === sel.id ? 'on' : ''}" data-route="${esc(r.id)}" style="--band:${gradeBand(r.grade)}">
         <span class="g">${esc(this.grade(r.grade))}</span>
-        <span><span class="n">${esc(r.name)}</span><br><span class="m">${esc(ANGLE_LABEL[r.angle])} · ${Math.round(r.anchor[1])} m · ${r.bolts.length} bolts${r.fa ? ` · FA ${esc(r.fa.by)}` : ''}</span></span>
+        <span><span class="n">${esc(r.name)}</span><br><span class="m">${esc(ANGLE_LABEL[r.angle])} · ${Math.round(r.anchor[1])} m · ${r.bolts.length} bolts${g ? ` · ⏱ ${fmtTime(g.time)}` : ''}</span></span>
         ${tick ? `<span class="tick ${tick === 'tried' ? 'tried' : ''}">${tick}</span>` : '<span></span>'}
       </button>`
     }
@@ -636,32 +677,63 @@ class App {
         ? `<div class="row"><span class="chip dark">Room ${esc(this.roomCode ?? '')}</span><button class="btn small" data-act="copy-room">Copy invite link</button></div>`
         : ''
     const isPlayer = players.some((p) => this.localIds.includes(p.id))
+    const day = l.history.length && players.length > 1 ? `<details class="day" ${this.dayOpen ? 'open' : ''}><summary class="kicker">Day ${l.day} so far · ${l.history.length} attempt${l.history.length > 1 ? 's' : ''}</summary>${this.boardHtml(l)}${awardsHtml(l)}</details>` : ''
     return `<div class="side">
-      <div class="row spread"><span class="kicker">Crag Day · day ${l.day}</span><button class="btn small" data-act="leave">Leave</button></div>
-      <h2>The Crag</h2>
-      ${roomBar}
-      <div class="players">${players.map(playerRow).join('')}</div>
-      ${l.mode === 'online' && players.length < 2 ? '<p class="note">Waiting for friends. Send them the invite link, or climb with the bot belayer meanwhile.</p>' : ''}
-      <div class="routes">${CRAG.map(routeCard).join('')}</div>
-      ${extra.length ? `<div class="kicker">Shared routes</div><div class="routes">${extra.map(routeCard).join('')}</div>` : ''}
-      <div class="row">
-        <select id="f-newgrade">${GRADES.map((g) => opt(g, this.grade(g), g === this.newGrade)).join('')}</select>
-        <button class="btn small" data-act="random-route">New random route</button>
-        <button class="btn small" data-act="copy-route">Copy route link</button>
-        ${!CRAG.some((c) => c.id === sel.id) ? '<button class="btn small" data-act="forget-route">Forget route</button>' : ''}
+      <div class="side-head">
+        <div class="row spread"><span class="kicker">Crag Day · day ${l.day}</span><div class="row"><button class="btn small ghost-btn" data-act="modal-help" title="How to play">?</button><button class="btn small ghost-btn" data-act="modal-log">Logbook</button><button class="btn small ghost-btn" data-act="modal-settings">Settings</button><button class="btn small" data-act="leave">Leave</button></div></div>
+        <h2>The Crag</h2>
+        ${roomBar}
+        <div class="players">${players.map(playerRow).join('')}</div>
+        ${l.mode === 'online' && players.length < 2 ? '<p class="note">Waiting for friends. Send them the invite link, or climb with the bot belayer meanwhile.</p>' : ''}
+        ${day}
       </div>
-      <div class="roles">
-        <div class="field"><label for="f-leader">Leader</label><select id="f-leader">${players.map((p) => opt(p.id, p.name, p.id === roles.leader)).join('')}</select></div>
-        <div class="field"><label for="f-belayer">Belayer</label><select id="f-belayer">${opt(BOT, 'Bot belayer', roles.belayer === BOT)}${players.map((p) => opt(p.id, p.name, p.id === roles.belayer)).join('')}</select></div>
+      <div class="side-body">
+        <div class="routes">${CRAG.map(routeCard).join('')}</div>
+        ${extra.length ? `<div class="kicker sect">Shared routes</div><div class="routes">${extra.map(routeCard).join('')}</div>` : ''}
+        <div class="row newroute">
+          <select id="f-newgrade" aria-label="Grade for a new route">${GRADES.map((g) => opt(g, this.grade(g), g === this.newGrade)).join('')}</select>
+          <button class="btn small" data-act="random-route">+ New random route</button>
+        </div>
       </div>
-      <label class="check"><input type="checkbox" id="f-autofeet" ${l.autoFeet ? 'checked' : ''}> Auto feet (feet step by themselves)</label>
-      <button class="go" data-act="start" ${isPlayer ? '' : 'disabled'}>Tie in: ${esc(sel.name)}</button>
-      <p class="note">${esc(this.grade(sel.grade))} · ${esc(ANGLE_LABEL[sel.angle])}. Every attempt costs day energy; tired climbers start pumped.</p>
-      <div class="row"><button class="btn small" data-act="modal-help">How to play</button><button class="btn small" data-act="modal-log">Logbook</button><button class="btn small" data-act="modal-settings">Settings</button></div>
-    </div>`
+      <div class="side-foot">
+        <div class="roles">
+          <div class="field"><label for="f-leader">Leader</label><select id="f-leader">${players.map((p) => opt(p.id, p.name, p.id === roles.leader)).join('')}</select></div>
+          <div class="field"><label for="f-belayer">Belayer</label><select id="f-belayer">${opt(BOT, 'Bot belayer', roles.belayer === BOT)}${players.map((p) => opt(p.id, p.name, p.id === roles.belayer)).join('')}</select></div>
+        </div>
+        <label class="check"><input type="checkbox" id="f-autofeet" ${l.autoFeet ? 'checked' : ''}> Auto feet (feet step by themselves)</label>
+        <button class="go" data-act="start" ${isPlayer ? '' : 'disabled'}>Tie in <span>→ ${esc(sel.name)}</span></button>
+      </div>
+    </div>
+    ${this.posterHtml(sel)}`
   }
 
   roleOverride: { leader?: string; belayer?: string } = {}
+  dayOpen = true
+
+  /** the selected route, as a topo card over the wall */
+  posterHtml(r: Route): string {
+    const tick = bestTick(r.id, this.me().name)
+    const g = loadGhost(r.id)
+    const shared = !CRAG.some((c) => c.id === r.id)
+    return `<div class="poster" style="--band:${gradeBand(r.grade)}">
+      <div class="poster-grade">${esc(this.grade(r.grade))}</div>
+      <div class="poster-main">
+        <span class="kicker">${esc(ANGLE_LABEL[r.angle])}${r.fa ? ` · FA ${esc(r.fa.by)}${r.fa.date ? ` ${esc(r.fa.date)}` : ''}` : ''}</span>
+        <h3>${esc(r.name)}</h3>
+        <div class="poster-facts">
+          <span><b>${Math.round(r.anchor[1])}</b> m</span><span><b>${r.bolts.length}</b> bolts</span><span><b>${r.holds.filter((h) => h.type !== 'foot').length}</b> holds</span>
+        </div>
+        <div class="poster-tags">
+          ${tick ? `<span class="tick ${tick === 'tried' ? 'tried' : ''}">${tick === 'tried' ? 'tried' : `your ${tick}`}</span>` : '<span class="tick tried">not tried</span>'}
+          ${g ? `<span class="tick ghost">⏱ ${fmtTime(g.time)} · ${esc(g.name)}</span>` : ''}
+        </div>
+        <div class="row">
+          <button class="btn small" data-act="copy-route">Copy route link</button>
+          ${shared ? '<button class="btn small" data-act="forget-route">Forget</button>' : ''}
+        </div>
+      </div>
+    </div>`
+  }
 
   defaultRoles(): { leader: string; belayer: string } {
     const l = this.lobby!
@@ -694,24 +766,37 @@ class App {
     const next = this.session ? this.session.nextRoles() : (l.next ?? guessRoles(l))
     const nextName = l.players.find((p) => p.id === next.leader)?.name ?? ''
     const isPlayer = l.players.some((p) => this.localIds.includes(p.id))
-    return `<div class="modal-bg"><div class="modal">
+    return `<div class="modal-bg summary-bg"><div class="modal summary ${s.sent ? 'sent' : ''}">
+      ${s.sent ? confetti() : ''}
       <div class="kicker">${esc(s.routeName)} · ${esc(this.grade(s.grade))} · ${esc(s.leaderName)}</div>
       <h2>${title}</h2>
       <div class="stats">
         <div><span>High point</span><b>${s.highPoint.toFixed(1)} m</b></div>
         <div><span>Falls</span><b>${s.falls}</b></div>
         <div><span>Style</span><b>${s.style ?? (s.topped ? 'Topped' : '—')}</b></div>
-        <div><span>Energy used</span><b>${s.energyCost}%</b></div>
+        ${s.time != null ? `<div><span>Time</span><b>${fmtTime(s.time)}</b></div>` : `<div><span>Energy used</span><b>${s.energyCost}%</b></div>`}
       </div>
+      ${this.ghostLine(s)}
       ${s.belay ? belayHtml(s.belay) : ''}
       ${this.boardHtml(l)}
-      ${l.dayOver ? `<p class="note">Everyone is out of energy. That was a good day at the crag.${dayMvp(l)}</p>` : ''}
+      ${l.dayOver ? `<p class="note">Everyone is out of energy. That was a good day at the crag.</p>${awardsHtml(l)}` : ''}
       <div class="row">
         ${l.dayOver ? `<button class="btn primary" data-act="newday" ${isPlayer ? '' : 'disabled'}>Start a new day</button>` : `<button class="btn primary" data-act="again" ${isPlayer ? '' : 'disabled'}>Next go: ${esc(nextName)} leads</button>`}
         <button class="btn" data-act="back">Pick another route</button>
         <button class="btn" data-act="copy-route-summary">Copy route link</button>
       </div>
     </div></div>`
+  }
+
+  /** how the send compares with the route's ghost */
+  ghostLine(s: Summary): string {
+    const r = this.ghostResult
+    if (!s.sent || !s.time || !r || r.key !== this.attemptKey) return ''
+    const p = r.prev
+    if (p && p.time <= s.time) return `<p class="ghost-line">${esc(p.name)}'s ghost is still faster: ${fmtTime(p.time)}, ${(s.time - p.time).toFixed(1)} s ahead.</p>`
+    if (p) return `<p class="ghost-line good">Beat ${esc(p.name)}'s ghost by ${(p.time - s.time).toFixed(1)} s.${r.saved ? ' This climb is the ghost now.' : ''}</p>`
+    if (r.saved) return `<p class="ghost-line good">First send recorded. Its ghost will climb beside the next leader.</p>`
+    return ''
   }
 
   /** the crew's day so far, once there is a crew */
@@ -775,6 +860,7 @@ class App {
       <label class="check"><input type="checkbox" id="s-voice" ${s.voice ? 'checked' : ''}> Spoken calls</label>
       <label class="check"><input type="checkbox" id="s-debug" ${s.debug ? 'checked' : ''}> Fall readout overlay (also G in game)</label>
       <label class="check"><input type="checkbox" id="s-coach" ${s.coach ? 'checked' : ''}> Coach tips for new players (turning it on shows them all again)</label>
+      <label class="check"><input type="checkbox" id="s-ghost" ${s.ghost ? 'checked' : ''}> Ghost of the fastest send climbs beside you</label>
       <p class="note">Your weight matters: a lighter belayer gets lifted further on a big fall, a heavier one gives a harder catch.</p>
     </div></div>`
   }
@@ -821,6 +907,9 @@ class App {
           this.coachShown = {}
           this.coachCounts = {}
         }
+        break
+      case 's-ghost':
+        s.ghost = t.checked
         break
       case 'f-autofeet':
         s.autoFeet = t.checked
@@ -1005,12 +1094,60 @@ function belayHtml(b: NonNullable<Summary['belay']>): string {
   return `<div class="belay-card"><span class="kicker">Belay · ${esc(b.name)}</span>${stars(b.stars)}<span class="why">${bits.join(' · ')}</span></div>`
 }
 
-/** at the end of the day, name the best belayer */
-function dayMvp(l: Lobby): string {
-  const best = crewBoard(l)
-    .filter((r) => r.belays > 0)
-    .sort((a, b) => b.stars - a.stars)[0]
-  return best && best.stars > 0 ? ` Belayer of the day: <b>${esc(best.name)}</b> (${best.stars}★).` : ''
+/** gym tape colours by grade band */
+function gradeBand(g: string): string {
+  const i = GRADES.indexOf(g)
+  const at = (x: string) => GRADES.indexOf(x)
+  if (i < at('6a')) return '#3FA34D'
+  if (i < at('6b')) return '#E0A800'
+  if (i < at('6c')) return '#0E8F9B'
+  if (i < at('7a')) return '#FF6B1A'
+  if (i < at('7b')) return '#D62839'
+  return '#7B5EA7'
+}
+
+const svg = (body: string) => `<svg class="mode-icon" viewBox="0 0 48 48" aria-hidden="true">${body}</svg>`
+const ICON = {
+  solo: svg('<circle cx="26" cy="9" r="4"/><path d="M25 14 L22 28 M22 28 L16 40 M22 28 L30 38 M24 18 L34 10 M24 19 L14 22"/><path class="r" d="M22 28 C 20 36, 30 40, 40 46"/>'),
+  local: svg('<circle cx="16" cy="10" r="4"/><path d="M16 15 L16 28 M16 28 L11 40 M16 28 L21 40 M16 18 L24 12 M16 19 L9 24"/><circle cx="34" cy="20" r="4"/><path d="M34 25 L34 36 M34 36 L30 46 M34 36 L38 46 M34 28 L28 32"/><path class="r" d="M16 28 C 24 30, 26 34, 28 32"/>'),
+  online: svg('<rect x="5" y="10" width="16" height="12" rx="2"/><rect x="27" y="26" width="16" height="12" rx="2"/><path class="r" d="M13 22 C 13 34, 35 14, 35 26"/><path d="M9 26 h8 M31 42 h8"/>'),
+}
+
+const AWARD_ICON: Record<string, string> = {
+  metres: '▲',
+  fast: '⏱',
+  whip: '↯',
+  soft: '◡',
+  belayer: '★',
+  flyer: '✈',
+  short: '⟂',
+  drop: '⤓',
+}
+
+/** the day's awards: serious ones and silly ones */
+function awardsHtml(l: Lobby): string {
+  if (l.players.length < 2) return ''
+  const list = dayAwards(l)
+  if (!list.length) return ''
+  return `<div class="awards">${list
+    .map(
+      (a) => `<div class="award award-${a.id}"><i style="--c:${PALETTE[a.color % PALETTE.length].shirt}">${AWARD_ICON[a.id] ?? '★'}</i>
+        <div><span class="kicker">${esc(a.title)}</span><b>${esc(a.name)}</b><small>${esc(a.detail)}</small></div></div>`,
+    )
+    .join('')}</div>`
+}
+
+/** a burst of paper confetti for a send */
+function confetti(): string {
+  const cols = ['#FF6B1A', '#0E8F9B', '#E0A800', '#7B5EA7', '#D62839', '#1D2125']
+  let out = ''
+  for (let i = 0; i < 36; i++) {
+    const x = (i * 37) % 100
+    const d = ((i * 53) % 60) / 100
+    const r = (i * 71) % 360
+    out += `<i style="--x:${x}%;--d:${d}s;--r:${r}deg;--c:${cols[i % cols.length]}"></i>`
+  }
+  return `<div class="confetti" aria-hidden="true">${out}</div>`
 }
 
 function headline(s: Summary): string {
@@ -1057,6 +1194,7 @@ function helpHtml(): string {
     <p class="note"><b>Calls:</b> ${calls}</p>
     <p class="note"><b>Tips.</b> Feet first: step up with Q/E, then reach. Rest on jugs with your feet on. Ask for slack before you clip ("Clipping!") or you'll short-rope yourself. "Falling!" gives your belayer a bigger catch window. A send means reaching the top anchor with no falls and no rests on the rope.</p>
     <p class="note"><b>Belay stars.</b> Lock off before the rope comes tight and the catch counts; do it with Shift for a <i>perfect</i> one. Short-roping your leader, a big loop of slack near the ground, or a late catch cost stars. Dropping someone to the ground costs the lot.</p>
+    <p class="note"><b>Ghost.</b> The fastest send of each route is saved in your browser and climbs beside the next leader as a see-through ghost; the clock at the top shows if you are ahead. At the end of a day the crew gets awards, serious and otherwise.</p>
     <p class="note">On one computer the mouse climbs and the arrow keys belay. <kbd>G</kbd> shows the fall readout.</p>
   </div></div>`
 }

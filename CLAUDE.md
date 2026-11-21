@@ -23,7 +23,7 @@ Every push to `main` runs `.github/workflows/deploy.yml`: test, build, publish `
   - `world.ts`: one attempt: clipping, falls, bot belayer, attempt end, `snapshot()` for network/render
   - `routes.ts`: grade-recipe route generator and the home crag
   - `script.ts`: a scripted leader used by tests
-- `src/game/`: session (players, roles, energy, send styles, belay stars, day board), storage (settings/logbook), share codes, coach tips
+- `src/game/`: session (players, roles, energy, send styles, belay stars, day board, day awards), storage (settings/logbook), share codes, coach tips, ghost (records sends from snapshots, replays the fastest per route)
 - `src/net/net.ts`: Trystero (Nostr) rooms; first in hosts; host sends snapshots at 30 Hz, guests send inputs
 - `src/render/`: Canvas 2D renderer and procedural textures
 - `src/input/input.ts`: keyboard + mouse to `InputFrame` (touch layer goes here later)

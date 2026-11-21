@@ -16,6 +16,8 @@ export interface Settings {
   coach: boolean
   /** tips already learned or seen */
   coachDone: string[]
+  /** race the ghost of the route's fastest send */
+  ghost: boolean
 }
 
 export interface LogEntry {
@@ -61,6 +63,7 @@ const DEFAULT_SETTINGS: Settings = {
   debug: false,
   coach: true,
   coachDone: [],
+  ghost: true,
 }
 
 export function loadSettings(): Settings {

@@ -61,6 +61,8 @@ export interface AttemptEnd {
   topped: boolean
   highPoint: number
   falls: number
+  /** seconds from tie-in to clipping the anchor, null if not topped */
+  time: number | null
 }
 
 export interface World {
@@ -97,6 +99,8 @@ export interface World {
   belay: BelayStats
   /** world time the leader hit the ground (-1 if they haven't) */
   ouchT: number
+  /** world time the anchor was clipped (-1 until then) */
+  topT: number
 }
 
 interface BotState {
@@ -162,6 +166,7 @@ export function createWorld(route: Route, opt: WorldOptions): World {
     hanging: false,
     belay: emptyBelayStats(),
     ouchT: -1,
+    topT: -1,
   }
   w.rope = createRope(devicePos(belayer), [climber.pelvis.x, climber.pelvis.y], 1.0)
   return w
@@ -443,6 +448,7 @@ function updateClip(w: World, inp: InputFrame, dt: number): void {
     emit(w, 'clip', d.backclip ? 'Back-clipped! Press F to fix it' : d.anchor ? 'Anchor clipped' : undefined)
     if (d.anchor) {
       w.topped = true
+      w.topT = w.t
       w.sent = !w.weighted && w.falls.length === 0
       emit(w, 'top', w.sent ? 'Sent!' : 'Top! Clean it next time')
     }
@@ -582,6 +588,7 @@ export function endAttempt(w: World, reason: AttemptEnd['reason']): void {
     topped: w.topped,
     highPoint: w.topped ? w.route.anchor[1] : Math.max(0, w.highPoint),
     falls: w.falls.length,
+    time: w.topT >= 0 ? Math.round(w.topT * 10) / 10 : null,
   }
   emit(w, 'end')
 }
@@ -678,6 +685,8 @@ export interface Snap {
   end: AttemptEnd | null
   /** seconds since the leader hit the ground, or -1 */
   ouch: number
+  /** world time the anchor was clipped, or -1 */
+  topT: number
 }
 
 export function snapshot(w: World): Snap {
@@ -729,6 +738,7 @@ export function snapshot(w: World): Snap {
     events: w.events.filter((e) => w.t - e.t < 3),
     end: w.end,
     ouch: w.ouchT >= 0 ? r2(w.t - w.ouchT) : -1,
+    topT: r2(w.topT),
   }
 }
 

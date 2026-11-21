@@ -37,6 +37,8 @@ export interface Summary {
   reason: 'ground' | 'lowered' | 'gaveup'
   energyCost: number
   date: string
+  /** seconds from tie-in to the anchor, if topped */
+  time: number | null
   /** how the human belayer did; null when the bot belayed */
   belay: (BelayStats & { score: number; stars: number; name: string }) | null
 }
@@ -50,6 +52,17 @@ export interface HistoryEntry {
   style?: Style | null
   /** belay stars, -1 for the bot */
   stars?: number
+  /** metres climbed (high point) */
+  high?: number
+  falls?: number
+  /** the biggest fall on this attempt (m) */
+  whip?: number
+  /** the softest catch by a human belayer (kN), if they caught one */
+  soft?: number | null
+  shortRopes?: number
+  dropped?: number
+  /** seconds to the anchor on a send */
+  time?: number | null
 }
 
 export interface Lobby {
@@ -261,6 +274,8 @@ export class Session {
     const B = this.lobby.players.find((p) => p.id === this.lobby.belayer)
     // a belay only counts once the leader is properly off the ground
     const belay = B && end.highPoint > 2.5 ? { ...w.belay, looseT: Math.round(w.belay.looseT * 10) / 10, ...belayScore(w.belay), name: B.name } : null
+    const whip = w.falls.reduce((m, f) => Math.max(m, f.startY - f.lowY), 0)
+    const caught = B ? w.falls.filter((f) => f.result !== 'ground' && f.result !== 'pending' && f.peak > 0) : []
     this.lobby.history.push({
       routeId: route.id,
       leader: this.lobby.leader!,
@@ -269,6 +284,13 @@ export class Session {
       grade: route.grade,
       style,
       stars: belay ? belay.stars : -1,
+      high: Math.round(end.highPoint * 10) / 10,
+      falls: end.falls,
+      whip: Math.round(whip * 10) / 10,
+      soft: caught.length ? Math.round(Math.min(...caught.map((f) => f.peak)) / 100) / 10 : null,
+      shortRopes: B ? w.belay.shortRopes : 0,
+      dropped: B ? w.belay.dropped : 0,
+      time: end.sent ? end.time : null,
     })
     this.lobby.summary = {
       routeId: route.id,
@@ -285,6 +307,7 @@ export class Session {
       reason: end.reason,
       energyCost: cost,
       date: new Date().toISOString().slice(0, 10),
+      time: end.time,
       belay,
     }
     this.lobby.phase = 'summary'
@@ -328,4 +351,68 @@ export function crewBoard(lobby: Pick<Lobby, 'players' | 'history'>): CrewRow[] 
       belays: belayed.length,
     }
   })
+}
+
+export interface Award {
+  /** short id, also picks the badge colour */
+  id: string
+  title: string
+  name: string
+  color: number
+  detail: string
+}
+
+const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
+
+/** The day's awards, from the crew's history. Funny ones included. */
+export function dayAwards(lobby: Pick<Lobby, 'players' | 'history' | 'extra'>): Award[] {
+  const P = (id: string | undefined) => lobby.players.find((p) => p.id === id)
+  const out: Award[] = []
+  const add = (id: string, title: string, pid: string | undefined, detail: string) => {
+    const p = P(pid)
+    if (p) out.push({ id, title, name: p.name, color: p.color, detail })
+  }
+  const sum = (pick: (h: HistoryEntry) => number, by: (h: HistoryEntry) => string | undefined) => {
+    const m = new Map<string, number>()
+    for (const h of lobby.history) {
+      const k = by(h)
+      if (k && k !== BOT) m.set(k, (m.get(k) ?? 0) + pick(h))
+    }
+    return [...m].sort((a, b) => b[1] - a[1])[0] as [string, number] | undefined
+  }
+  const routeName = (id: string) => findRoute(lobby, id)?.name ?? 'a route'
+
+  const metres = sum((h) => h.high ?? 0, (h) => h.leader)
+  if (metres && metres[1] >= 3) add('metres', 'Most metres', metres[0], `${Math.round(metres[1])} m led`)
+
+  const fast = lobby.history.filter((h) => h.sent && h.time).sort((a, b) => a.time! - b.time!)[0]
+  if (fast) add('fast', 'Fastest send', fast.leader, `${fmtTime(fast.time!)} on ${routeName(fast.routeId)}`)
+
+  const whip = lobby.history.filter((h) => (h.whip ?? 0) >= 2).sort((a, b) => b.whip! - a.whip!)[0]
+  if (whip) add('whip', 'Biggest whipper', whip.leader, `${whip.whip!.toFixed(1)} m on ${routeName(whip.routeId)}`)
+
+  const soft = lobby.history.filter((h) => h.soft != null && h.belayer !== BOT).sort((a, b) => a.soft! - b.soft!)[0]
+  if (soft) add('soft', 'Softest hands', soft.belayer, `${soft.soft!.toFixed(1)} kN catch for ${P(soft.leader)?.name ?? 'a friend'}`)
+
+  const stars = sum((h) => Math.max(0, h.stars ?? 0), (h) => ((h.stars ?? -1) >= 0 ? h.belayer : undefined))
+  if (stars && stars[1] > 0) add('belayer', 'Belayer of the day', stars[0], `${stars[1]}★ earned`)
+
+  const flyer = sum((h) => h.falls ?? 0, (h) => h.leader)
+  if (flyer && flyer[1] >= 3) add('flyer', 'Frequent flyer', flyer[0], plural(flyer[1], 'fall'))
+
+  const short = sum((h) => h.shortRopes ?? 0, (h) => h.belayer)
+  if (short && short[1] > 0) {
+    const victims = [...new Set(lobby.history.filter((h) => h.belayer === short[0] && (h.shortRopes ?? 0) > 0).map((h) => P(h.leader)?.name))].filter(Boolean)
+    add('short', 'Short-roper', short[0], `short-roped ${victims.join(' & ') || 'someone'}${short[1] > 1 ? ` ×${short[1]}` : ''}`)
+  }
+
+  const drop = lobby.history.find((h) => (h.dropped ?? 0) > 0 && h.belayer !== BOT)
+  if (drop) add('drop', 'Gravity’s friend', drop.belayer, `dropped ${P(drop.leader)?.name ?? 'someone'}`)
+  return out
+}
+
+export function fmtTime(s: number): string {
+  const m = Math.floor(s / 60)
+  const r = s - m * 60
+  return `${m}:${r < 10 ? '0' : ''}${r.toFixed(1)}`
 }

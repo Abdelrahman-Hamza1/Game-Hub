@@ -346,8 +346,8 @@ Plus: one life per run, no checkpoints, shared lives.
 **Other**
 - Conditions: friction from temperature, humidity, shade and chalk; changing through the day
 - Assisted-braking belay device (locks by itself, harder catches, can short-rope a fast clipper)
-- Ghost beta (record a send, friends race or copy the ghost)
-- Crew stats (falls caught, meters led, softest catch, who short-roped whom)
+- ~~Ghost beta~~ (built: the fastest send per route is recorded from snapshots on every machine that watched it and replayed with a race clock. Still to do: sharing a ghost inside a route link)
+- ~~Crew stats~~ (built as the day board and day awards: most metres, fastest send, biggest whipper, softest hands, belayer of the day, frequent flyer, short-roper, gravity's friend)
 - Boulder grades (V-scale / Font)
 - Gamepad
 - Built-in proximity voice
