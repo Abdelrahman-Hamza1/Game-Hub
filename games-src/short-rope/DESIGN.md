@@ -5,7 +5,7 @@ A co-op climbing game for people who actually climb. Every player controls their
 - **Players:** 2–4 online (2 on one computer for development and couch play)
 - **Platforms:** desktop browser with keyboard + mouse first; phone browser as the last step of v1
 - **View:** 2D, side-on. The wall is the screen.
-- **Stack:** TypeScript, Vite, Canvas 2D (rendering), hand-written physics (no engine), Trystero (peer-to-peer rooms)
+- **Stack:** TypeScript, Vite, Canvas 2D (rendering), hand-written physics (no engine), Game Night rooms (peer-to-peer, PeerJS); originally Trystero
 - **Hosting:** GitHub Pages only. No server, no domain.
 
 ---
@@ -270,15 +270,15 @@ Grade conversions used in the UI (approximate):
 - Peak tension during a catch is the catch force.
 
 ### 11.3 Multiplayer
-- **Rooms by link:** `…/short-rope/?room=crag42`. The first player in becomes the host.
-- **Signaling:** Trystero, using free public relays, only to introduce browsers. Game data goes directly between browsers over WebRTC.
+- **Rooms:** Game Night rooms (4-letter codes). Pick Short Rope in the room's lobby; the room's host is the game host. *(Changed when Short Rope joined Game Night: it used to run its own Trystero rooms by link, with host migration. One room system for the whole site won over that; if the host leaves, the Game Night room closes.)*
+- **Signaling:** PeerJS's public broker, only to introduce browsers. Game data goes directly between browsers over WebRTC, relayed through the host.
 - **Host-authoritative:** the host's browser runs the whole simulation (climbers, rope, falls). Guests send inputs; the host sends state snapshots about 30 times a second and guests interpolate.
 - **Fair catches:** belay inputs carry timestamps so catch timing is judged at the time the belayer pressed, not when the packet arrived.
 - **Known limitation:** without a relay server, a friend on a network that blocks direct connections (mostly mobile data) can't join from that network. Wi-Fi fixes it. A relay is only added if this becomes a real problem.
 
 ### 11.4 Hosting
-- GitHub Pages, deployed by a GitHub Actions workflow on every push to `main`.
-- Vite `base` is set to `/short-rope/`.
+- GitHub Pages, as part of Game Night: the hub's workflow tests and builds every game on each push to `main`.
+- Vite `base` is `./`; the build goes to the hub's `games/short-rope/`.
 
 ### 11.5 Project layout
 
@@ -287,7 +287,7 @@ Grade conversions used in the UI (approximate):
   /input     action layer: keyboard + mouse now, touch later
   /sim       physics step, climber, rope, fall model, pump (pure logic, runs on the host)
   /render    Canvas 2D drawing, camera, HUD
-  /net       Trystero rooms, snapshots, input messages
+  /net       Game Night room transport, snapshots, input messages
   /ui        menus, logbook, call wheel
 /content     walls and routes (JSON)
 DESIGN.md    this document

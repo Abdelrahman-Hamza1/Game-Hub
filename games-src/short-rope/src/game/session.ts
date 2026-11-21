@@ -86,7 +86,7 @@ export interface Lobby {
   autoFeet: boolean
   day: number
   dayOver: boolean
-  /** when this session started; the older session wins if two hosts meet */
+  /** when this session started (part of logbook keys) */
   created: number
   /** the host's suggestion for the next attempt */
   next: { leader: string; belayer: string } | null

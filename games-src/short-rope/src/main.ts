@@ -20,7 +20,8 @@ import {
   type Settings,
 } from './game/storage'
 import { LocalInput } from './input/input'
-import { lerpSnap, Net, newRoomCode, type Cmd } from './net/net'
+import { lerpSnap, Net, type Cmd } from './net/net'
+import { hostRoomUrl, hub, hubSoundOn, joinRoomUrl, type HubRoom } from './hub'
 import { PALETTE, Renderer, routeHex, type Toast } from './render/renderer'
 import { WALLS, type WallColor } from './render/textures'
 import { ANGLE_LABEL, CALLS, GRADES, YDS } from './sim/constants'
@@ -55,6 +56,8 @@ class App {
   selfId = 'p1'
   localIds: string[] = []
   roomCode: string | null = null
+  /** set while this page runs inside a Game Night room */
+  hubRoom: HubRoom | null = null
   status = ''
   toasts: Toast[] = []
   seenEvent = 0
@@ -91,7 +94,12 @@ class App {
     this.input.toWorld = this.renderer.toWorld
     this.input.onShortcut = (code) => this.shortcut(code)
     this.preview = createWorld(CRAG[3], { leaderMass: 70, belayerMass: 70, tired: 0, autoFeet: false, bot: true })
-    setAudio(this.settings.sound, this.settings.voice)
+    if (hub()?.inRoom) {
+      this.screen = 'connecting'
+      this.status = 'Joining the room…'
+    }
+    this.applyAudio()
+    hub()?.sound.onChange(() => this.applyAudio())
     window.addEventListener('pointerdown', () => unlockAudio(), { once: false })
     this.ui.addEventListener('click', (e) => this.onClick(e))
     this.ui.addEventListener('change', (e) => this.onChange(e))
@@ -129,19 +137,19 @@ class App {
         this.toast(`Wall added: ${w.name}`, 'good')
       } else this.toast('That wall link is broken', 'bad')
     }
-    const room = q.get('room')
-    if (room) {
-      this.roomCode = room.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24)
-      if (this.settings.name) this.startOnline(this.roomCode)
-    }
-    if (code || wcode || room) history.replaceState(null, '', baseUrl() + (room && !code && !wcode ? `?room=${encodeURIComponent(room)}` : ''))
+    if ((code || wcode) && !this.hubRoom) history.replaceState(null, '', baseUrl())
     this.renderUi(true)
   }
 
   // ---------- starting and leaving ----------
 
+  /** the game's own sound setting, and the Game Night bar's mute button */
+  applyAudio(): void {
+    setAudio(this.settings.sound && hubSoundOn(), this.settings.voice)
+  }
+
   me(): { name: string; mass: number; tried: string[] } {
-    const name = this.settings.name.trim() || 'Climber'
+    const name = (this.hubRoom?.me.name ?? this.settings.name).trim().slice(0, 20) || 'Climber'
     return { name, mass: this.settings.mass, tried: triedRoutes(name) }
   }
 
@@ -175,28 +183,19 @@ class App {
     this.enterGame()
   }
 
-  startOnline(code: string): void {
+  /** Online play: this page is running inside a Game Night room. */
+  startOnline(room: HubRoom): void {
     this.leave(false)
-    this.roomCode = code
-    history.replaceState(null, '', `${baseUrl()}?room=${encodeURIComponent(code)}`)
+    this.hubRoom = room
+    this.roomCode = room.code
     const live = () => this.net === net
-    const net = new Net({
+    const net = new Net(room, {
       onRole: (isHost) => {
         if (!live()) return
         if (isHost) {
-          const old = this.lobby
+          // the room's host runs the day (Game Night closes the room if they leave)
           const s = new Session('online', net.selfId)
           s.addPlayer({ id: net.selfId, ...this.me() })
-          if (old) {
-            // host migration: keep the day going for everyone still here
-            for (const p of old.players) if (p.id !== net.selfId && net.peers.has(p.id)) s.addPlayer(p)
-            for (const r of old.extra) s.addRoute(r)
-            for (const w of old.walls ?? []) s.addWall(w)
-            s.lobby.day = old.day
-            s.lobby.created = old.created
-            s.lobby.history = old.history
-            for (const p of s.lobby.players) p.energy = old.players.find((o) => o.id === p.id)?.energy ?? 100
-          }
           this.seedRoutes(s)
           this.session = s
           this.lobby = s.lobby
@@ -237,8 +236,10 @@ class App {
         if (live() && c && typeof c === 'object') this.handleCmd(peer, c)
       },
       onHello: (peer, h) => {
-        if (!live() || !h) return
-        this.session?.addPlayer({ id: peer, name: String(h.name).slice(0, 20) || 'Climber', mass: clampMass(h.mass), tried: (h.tried || []).slice(0, 200) })
+        if (!live() || !h || !net.peers.has(peer)) return
+        // the room's name for this player is unique in the room; prefer it
+        const roomName = room.players.find((p) => p.id === peer)?.name
+        this.session?.addPlayer({ id: peer, name: String(roomName ?? h.name).slice(0, 20) || 'Climber', mass: clampMass(h.mass), tried: (h.tried || []).slice(0, 200) })
       },
       onPeerLeave: (peer) => {
         if (!live()) return
@@ -256,7 +257,7 @@ class App {
     this.net = net
     this.selfId = net.selfId
     this.screen = 'connecting'
-    net.join(code, () => this.me())
+    net.join(() => this.me())
     this.renderUi(true)
   }
 
@@ -278,6 +279,7 @@ class App {
   }
 
   leave(render = true): void {
+    this.hubRoom = null
     this.net?.leave()
     this.net = null
     this.session = null
@@ -631,7 +633,8 @@ class App {
 
   menuHtml(): string {
     const s = this.settings
-    const joinCode = this.roomCode ?? ''
+    // online rooms are Game Night's; without the hub's SDK there are none
+    const online = !!hub()
     return `
     <div class="menu"><div class="menu-inner">
       <div class="kicker">Co-op climbing · real rope work</div>
@@ -646,13 +649,13 @@ class App {
       <div class="modes">
         <button class="mode-card" data-act="solo">${ICON.solo}<b>Solo</b><span>You lead, a bot belays. Learn the moves.</span></button>
         <button class="mode-card" data-act="local">${ICON.local}<b>Two players</b><span>One computer: mouse climbs, arrow keys belay.</span></button>
-        <button class="mode-card hot" data-act="host">${ICON.online}<b>Online room</b><span>Make a room and send the link to your crew.</span></button>
+        ${online ? `<button class="mode-card hot" data-act="host">${ICON.online}<b>Online room</b><span>Make a Game Night room and share the code with your crew.</span></button>` : ''}
       </div>
-      <div class="join">
+      ${online ? `<div class="join">
         <label for="f-room">Join a room</label>
-        <input id="f-room" placeholder="room code" value="${esc(joinCode)}" style="width:150px">
+        <input id="f-room" placeholder="KQ7P" maxlength="4" autocapitalize="characters" autocomplete="off" style="width:110px">
         <button class="btn dark" data-act="join">Join</button>
-      </div>
+      </div>` : ''}
       ${matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches ? '<p class="note"><b>On a phone?</b> Touch controls are coming later. For now, play on a computer with a mouse and keyboard.</p>' : ''}
       ${this.menuStats()}
       <div class="links">
@@ -678,9 +681,21 @@ class App {
       <div class="spinner"></div>
       <h2 style="font-size:40px">Room ${esc(this.roomCode ?? '')}</h2>
       <p class="note">${esc(this.status || 'Connecting…')}</p>
-      <p class="note">If nobody else is here, you'll host the room in a few seconds.</p>
-      <button class="btn" data-act="leave">Cancel</button>
     </div></div>`
+  }
+
+  /** Leave in solo or same-screen play; in a room only the host has one, and it ends the game. */
+  leaveBtn(cls: string): string {
+    if (!this.hubRoom) return `<button class="${cls}" data-act="leave">Leave</button>`
+    return this.hubRoom.isHost ? `<button class="${cls}" data-act="leave" title="Everyone goes back to the room's lobby">End game</button>` : ''
+  }
+
+  /** The line the room's lobby shows after the host ends Short Rope. */
+  endText(): string {
+    const l = this.lobby
+    if (!l || !l.history.length) return 'Back from the gym.'
+    const sends = l.history.filter((h) => h.sent).length
+    return `Day ${l.day}: ${l.history.length} attempt${l.history.length > 1 ? 's' : ''}, ${sends} send${sends === 1 ? '' : 's'}.`
   }
 
   cragHtml(): string {
@@ -718,7 +733,7 @@ class App {
     const day = l.history.length && players.length > 1 ? `<details class="day" ${this.dayOpen ? 'open' : ''}><summary class="kicker">Day ${l.day} so far · ${l.history.length} attempt${l.history.length > 1 ? 's' : ''}</summary>${this.boardHtml(l)}${awardsHtml(l)}</details>` : ''
     return `<div class="side">
       <div class="side-head">
-        <div class="row spread"><span class="kicker">Crag Day · day ${l.day}</span><div class="row"><button class="btn small ghost-btn" data-act="modal-help" title="How to play">?</button><button class="btn small ghost-btn" data-act="modal-log">Logbook</button><button class="btn small ghost-btn" data-act="modal-settings">Settings</button><button class="btn small" data-act="leave">Leave</button></div></div>
+        <div class="row spread"><span class="kicker">Crag Day · day ${l.day}</span><div class="row"><button class="btn small ghost-btn" data-act="modal-help" title="How to play">?</button><button class="btn small ghost-btn" data-act="modal-log">Logbook</button><button class="btn small ghost-btn" data-act="modal-settings">Settings</button>${this.leaveBtn('btn small')}</div></div>
         <h2>The Crag</h2>
         ${roomBar}
         <div class="players">${players.map(playerRow).join('')}</div>
@@ -794,7 +809,7 @@ class App {
       ${l.phase === 'climb' && canEnd ? `<button class="btn small" data-act="giveup" title="Ask to be lowered; the attempt won't count as a send">Lower me off</button>` : ''}
       ${l.phase === 'climb' && this.session ? `<button class="btn small" data-act="force-end">End attempt</button>` : ''}
       <button class="btn small" data-act="modal-help">Controls (H)</button>
-      <button class="btn small dark" data-act="leave">Leave</button>
+      ${this.leaveBtn('btn small dark')}
     </div>
     ${l.phase === 'climb' && !this.isLocalLeader() && !this.isLocalBelayer() ? `<div class="status">Watching ${esc(lead)} climb. Your turn is coming.</div>` : ''}`
   }
@@ -979,7 +994,7 @@ class App {
         return
     }
     saveSettings(s)
-    setAudio(s.sound, s.voice)
+    this.applyAudio()
     this.renderUi(true)
   }
 
@@ -1022,20 +1037,24 @@ class App {
       case 'local':
         if (!needName()) this.startLocal()
         break
-      case 'host':
-        if (!needName()) this.startOnline(newRoomCode())
+      case 'host': {
+        // online play happens in a Game Night room, with Short Rope already picked
+        const url = hostRoomUrl()
+        if (url) location.href = url
         break
+      }
       case 'join': {
-        const code = (document.getElementById('f-room') as HTMLInputElement).value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
-        if (!code) {
-          this.toast('Type the room code first', 'info')
-          break
-        }
-        if (!needName()) this.startOnline(code)
+        const code = (document.getElementById('f-room') as HTMLInputElement).value
+        const url = joinRoomUrl(code)
+        if (url) location.href = url
+        else this.toast('Room codes are 4 letters or numbers, like KQ7P', 'info')
         break
       }
       case 'leave':
-        this.leave()
+        // in a room, the host ends the game for everyone; the room page takes over from there
+        if (this.hubRoom) {
+          if (this.hubRoom.isHost) this.hubRoom.end(this.endText())
+        } else this.leave()
         break
       case 'modal-help':
         this.modal = 'help'
@@ -1098,9 +1117,11 @@ class App {
         else if (r) await copy(await routeLink(r), 'Route link copied', this)
         break
       }
-      case 'copy-room':
-        await copy(`${baseUrl()}?room=${encodeURIComponent(this.roomCode ?? '')}`, 'Invite link copied', this)
+      case 'copy-room': {
+        const url = joinRoomUrl(this.roomCode ?? '')
+        if (url) await copy(url, 'Invite link copied', this)
         break
+      }
     }
     this.renderUi(true)
   }
@@ -1244,5 +1265,8 @@ function helpHtml(): string {
 }
 
 const app = new App()
+// inside a Game Night room, go straight to the shared crag
+const gn = hub()
+if (gn?.inRoom) void gn.ready().then(({ room }) => room && app.startOnline(room))
 // handle for automated browser tests
 ;(window as unknown as { __shortRope: App }).__shortRope = app

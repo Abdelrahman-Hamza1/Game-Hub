@@ -1,14 +1,13 @@
-// Peer-to-peer rooms over WebRTC, introduced through public Nostr relays by
-// Trystero. One browser is the host and runs the game; the others send inputs
-// and draw the snapshots the host sends back.
+// Online play runs inside a Game Night room (room.html + shared/gamenight.js). The room page owns
+// the peer-to-peer connection; this file speaks Short Rope's protocol over the room's message API.
+// The room's host browser is the game host: it runs the simulation and sends snapshots at 30 Hz,
+// and everyone else sends inputs. If the host leaves, Game Night closes the room.
 
-import { joinRoom, selfId, type Room } from 'trystero'
 import type { InputFrame, Route } from '../sim/types'
 import type { Wall } from '../sim/routes'
 import type { Snap } from '../sim/world'
 import type { Lobby } from '../game/session'
-
-export const APP_ID = 'short-rope-crag-v1'
+import type { HubPlayer, HubRoom } from '../hub'
 
 export interface Hello {
   name: string
@@ -36,171 +35,110 @@ export interface NetEvents {
   onStatus(text: string): void
 }
 
+/** Message types on the room channel. Prefixed so they never clash with the hub's own. */
+const T = { lobby: 'sr:lobby', snap: 'sr:snap', inp: 'sr:inp', cmd: 'sr:cmd', hello: 'sr:hello', ping: 'sr:ping', pong: 'sr:pong' }
+
 export class Net {
-  readonly selfId = selfId
-  room: Room | null = null
+  readonly selfId: string
   isHost = false
   hostId: string | null = null
+  /** round trip to the host in ms (guests), for fair catches */
   latency: number | null = null
   peers = new Set<string>()
   /** set by leave(): a closed Net never fires events again */
   closed = false
   /** the host's current lobby, so it can greet new peers straight away */
   lobbyNow: () => Lobby | null = () => null
-  private hostCreated = Infinity
-  private decided = false
+  private offs: Array<() => void> = []
   private timers: number[] = []
-  private send!: {
-    lobby: (d: Lobby, target?: string) => void
-    snap: (d: Snap) => void
-    inp: (d: InputFrame) => void
-    cmd: (d: Cmd) => void
-    hello: (d: Hello) => void
+  private roleSent = false
+
+  constructor(
+    readonly room: HubRoom,
+    private ev: NetEvents,
+  ) {
+    this.selfId = room.me.id
   }
 
-  constructor(private ev: NetEvents) {}
+  join(hello: () => Hello): void {
+    const r = this.room
+    const on = (type: string, fn: (data: any, from: string) => void) =>
+      this.offs.push(r.on(type, (d, from) => !this.closed && fn(d, from)))
+    this.hostId = r.hostId
+    this.isHost = r.isHost
+    this.peers = new Set(r.players.map((p) => p.id).filter((id) => id !== this.selfId))
 
-  join(code: string, hello: () => Hello): void {
-    const room = joinRoom({ appId: APP_ID }, code)
-    this.room = room
-    const lobbyA = room.makeAction<any>('lobby')
-    const snapA = room.makeAction<any>('snap')
-    const inpA = room.makeAction<any>('inp')
-    const cmdA = room.makeAction<any>('cmd')
-    const helloA = room.makeAction<any>('hello')
-    this.send = {
-      lobby: (d, target) => void lobbyA.send(d, target ? { target } : undefined),
-      snap: (d) => void snapA.send(d),
-      inp: (d) => this.hostId && void inpA.send(d, { target: this.hostId }),
-      cmd: (d) => this.hostId && void cmdA.send(d, { target: this.hostId }),
-      hello: (d) => this.hostId && void helloA.send(d, { target: this.hostId }),
+    if (this.isHost) {
+      // become host before listening, so the session exists when queued hellos arrive
+      this.role()
+      on(T.hello, (d, from) => this.ev.onHello(from, d as Hello))
+      on(T.inp, (d, from) => this.ev.onInput(from, d as InputFrame))
+      on(T.cmd, (d, from) => this.ev.onCmd(from, d as Cmd))
+      on(T.ping, (d, from) => r.sendTo(from, T.pong, d))
+    } else {
+      on(T.lobby, (d, from) => {
+        const lobby = d as Lobby
+        if (from !== this.hostId || !lobby || lobby.hostId !== from || !Array.isArray(lobby.players)) return
+        this.role()
+        this.ev.onLobby(lobby, from)
+        if (!lobby.players.some((p) => p.id === this.selfId)) r.sendToHost(T.hello, hello())
+      })
+      on(T.snap, (d, from) => from === this.hostId && this.ev.onSnap(d as Snap))
+      on(T.pong, (d) => {
+        if (typeof d === 'number') this.latency = performance.now() - d
+      })
+      r.sendToHost(T.hello, hello())
+      this.ev.onStatus('Waiting for the host…')
+      this.timers.push(window.setInterval(() => !this.closed && r.sendToHost(T.ping, performance.now()), 2000))
     }
 
-    lobbyA.onMessage = (data, { peerId }) => {
-      if (this.closed) return
-      const lobby = data as Lobby
-      if (!lobby || lobby.hostId !== peerId || !Array.isArray(lobby.players)) return
-      const older = (a: number, aid: string, b: number, bid: string) => a < b || (a === b && aid < bid)
-      if (this.isHost) {
-        // two hosts met: the older session keeps the room
-        const mine = this.lobbyNow()
-        if (mine && older(mine.created, this.selfId, lobby.created, peerId)) return
-        this.becomeGuest(peerId, lobby.created)
-      } else if (this.hostId !== peerId) {
-        // follow a different host only if ours is gone or theirs is older
-        if (this.hostId && this.peers.has(this.hostId) && !older(lobby.created, peerId, this.hostCreated, this.hostId)) return
-        this.becomeGuest(peerId, lobby.created)
-      }
-      this.decided = true
-      this.ev.onLobby(lobby, peerId)
-      if (!lobby.players.some((p) => p.id === this.selfId)) this.send.hello(hello())
-    }
-    snapA.onMessage = (data, { peerId }) => {
-      if (this.closed) return
-      if (!this.isHost && peerId === this.hostId) this.ev.onSnap(data as Snap)
-    }
-    inpA.onMessage = (data, { peerId }) => {
-      if (!this.closed && this.isHost) this.ev.onInput(peerId, data as InputFrame)
-    }
-    cmdA.onMessage = (data, { peerId }) => {
-      if (!this.closed && this.isHost) this.ev.onCmd(peerId, data as Cmd)
-    }
-    helloA.onMessage = (data, { peerId }) => {
-      if (!this.closed && this.isHost) this.ev.onHello(peerId, data as Hello)
-    }
-    room.onPeerJoin = (peerId) => {
-      if (this.closed) return
-      this.peers.add(peerId)
-      // greet newcomers right away so they don't think the room is empty
-      const l = this.isHost ? this.lobbyNow() : null
-      if (l) this.send.lobby(l, peerId)
-      this.ev.onStatus(`${this.peers.size + 1} in the room`)
-    }
-    room.onPeerLeave = (peerId) => {
-      if (this.closed) return
-      this.peers.delete(peerId)
-      this.ev.onPeerLeave(peerId)
-      this.ev.onStatus(`${this.peers.size + 1} in the room`)
-      if (peerId === this.hostId) {
-        // the host left: the lowest remaining id takes over
-        const ids = [...this.peers, this.selfId].sort()
-        if (ids[0] === this.selfId) this.becomeHost()
-        else {
-          this.hostId = null
-          this.decided = false
-          // if the new host never shows up, take over
-          this.timers.push(
-            window.setTimeout(() => {
-              if (!this.closed && !this.decided) this.becomeHost()
-            }, 5000),
-          )
-        }
-      }
-    }
-    this.ev.onStatus('Looking for friends in the room…')
-    // nobody answered: this browser hosts
-    this.timers.push(
-      window.setTimeout(() => {
-        if (!this.closed && !this.decided) this.becomeHost()
-      }, 4000),
-    )
-    // measure latency to the host for fair catches
-    this.timers.push(
-      window.setInterval(async () => {
-        if (this.isHost || !this.hostId || !this.room) return
-        try {
-          this.latency = await this.room.ping(this.hostId)
-        } catch {
-          /* peer gone */
-        }
-      }, 2000),
-    )
+    this.offs.push(r.onPlayers((players) => this.syncPlayers(players)))
   }
 
-  private becomeHost(): void {
+  private role(): void {
+    if (this.roleSent || this.closed) return
+    this.roleSent = true
+    this.ev.onRole(this.isHost, this.hostId)
+  }
+
+  private syncPlayers(players: HubPlayer[]): void {
     if (this.closed) return
-    this.decided = true
-    this.isHost = true
-    this.hostId = this.selfId
-    this.ev.onRole(true, this.selfId)
+    const now = new Set(players.map((p) => p.id).filter((id) => id !== this.selfId))
+    for (const id of [...this.peers]) {
+      if (now.has(id)) continue
+      this.peers.delete(id)
+      this.ev.onPeerLeave(id)
+    }
+    for (const id of now) {
+      if (this.peers.has(id)) continue
+      this.peers.add(id)
+      // greet newcomers right away so they don't wait for the next lobby heartbeat
+      const l = this.isHost ? this.lobbyNow() : null
+      if (l) this.room.sendTo(id, T.lobby, l)
+    }
+    this.ev.onStatus(`${now.size + 1} in the room`)
   }
 
-  private becomeGuest(hostId: string, created: number): void {
-    this.isHost = false
-    this.hostId = hostId
-    this.hostCreated = created
-    this.ev.onRole(false, hostId)
-  }
-
-  broadcastLobby(l: Lobby, target?: string): void {
-    this.send?.lobby(l, target)
+  broadcastLobby(l: Lobby): void {
+    if (!this.closed && this.isHost) this.room.send(T.lobby, l)
   }
   broadcastSnap(s: Snap): void {
-    this.send?.snap(s)
+    if (!this.closed && this.isHost) this.room.send(T.snap, s)
   }
   sendInput(f: InputFrame): void {
-    this.send?.inp(f)
+    if (!this.closed && !this.isHost) this.room.sendToHost(T.inp, f)
   }
   sendCmd(c: Cmd): void {
-    this.send?.cmd(c)
+    if (!this.closed) this.room.sendToHost(T.cmd, c)
   }
 
   leave(): void {
     this.closed = true
-    this.timers.forEach((t) => {
-      clearTimeout(t)
-      clearInterval(t)
-    })
+    this.offs.forEach((off) => off())
+    this.offs = []
+    this.timers.forEach((t) => clearInterval(t))
     this.timers = []
-    void this.room?.leave()
-    this.room = null
   }
-}
-
-export function newRoomCode(): string {
-  const words = ['crimp', 'jug', 'flake', 'pinch', 'crux', 'sloper', 'arete', 'dyno', 'smear', 'mantle', 'roof', 'chalk']
-  const w = words[Math.floor(Math.random() * words.length)]
-  return `${w}${Math.floor(10 + Math.random() * 90)}`
 }
 
 /** Interpolate between two snapshots for smooth drawing on guests. */

@@ -21,6 +21,29 @@
     "howTo": "Sound is how you see: footsteps, claps (Space), tongue clicks (F) and thrown stones (click) light up the cave.\nSound is how you're found: Listeners hunt anything they hear. Hold Shift to sneak.\nFollow the exit's wind. E takes a tourist's hand. Esc pauses, R retries."
   },
   {
+    "id": "short-rope",
+    "title": "Short Rope",
+    "blurb": "Co-op climbing with real rope work. One friend leads and clips; the other feeds slack and catches the falls.",
+    "players": [
+      1,
+      4
+    ],
+    "modes": [
+      "solo",
+      "same-screen",
+      "online"
+    ],
+    "color": "red",
+    "pattern": "ladder",
+    "tags": [
+      "co-op",
+      "climbing",
+      "physics"
+    ],
+    "added": "2026-11-21",
+    "howTo": "Climb one limb at a time: hold the left or right mouse button, drag a hand to a hold, let go to grab. Q and E step your feet up.\nClip each quickdraw with F, and call \"Clipping!\" first so your belayer gives slack.\nBelaying: hold ↓ to feed slack, ↑ to take in, Enter to catch a fall.\nSolo, a bot belays you. On one computer, the mouse climbs and the arrow keys belay. In a room, up to 4 friends take turns."
+  },
+  {
     "id": "_template",
     "title": "Tap Test",
     "blurb": "The starter template. Tap fast alone, or tap together in a room to check connections.",

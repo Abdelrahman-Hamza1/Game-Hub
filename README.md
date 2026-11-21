@@ -10,6 +10,12 @@ The repo is called `Game-Hub`; the site is called **Game Night**.
 
 ## Run it locally
 
+Games with a build step (in `games-src/`) need building once, and again after you change them:
+
+```sh
+node scripts/build-games.mjs          # builds every game into games/<id>/ (add --test to run tests too)
+```
+
 Pages need to load `games.json`, so open them through a local server (opening the files directly won't work):
 
 ```sh
@@ -23,11 +29,14 @@ To test a room, open `http://localhost:8000/room.html` in one window, then join 
 
 ## Deploy on GitHub Pages
 
-1. Push to `main`.
-2. In the repo on GitHub: **Settings → Pages → Build and deployment → Deploy from a branch → `main` / `(root)`**.
-3. The site goes live at `https://abdelrahman-hamza1.github.io/Game-Hub/`.
+1. One time: in the repo on GitHub, **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Push to `main`. `.github/workflows/deploy.yml` runs `node scripts/build-games.mjs --ci` (a clean
+   install, the tests, and a build for every game in `games-src/`), then publishes the site. If a
+   test fails, nothing is published and the live site stays as it was.
+3. The site is at `https://abdelrahman-hamza1.github.io/Game-Hub/`.
 
-`.nojekyll` is required. Without it, GitHub's Jekyll step drops folders that start with `_`, including `games/_template`.
+Pull requests run the same build and tests without publishing. Built games (`games/echo/`,
+`games/short-rope/`) are git-ignored: the deploy always builds them fresh, so they can't go stale.
 
 ## Add a game
 
@@ -70,10 +79,26 @@ To test a room, open `http://localhost:8000/room.html` in one window, then join 
 
 ### Games with a build step
 
-A game can be built with tooling instead of hand-written HTML. **Echo** is one: its TypeScript
-source lives in `games-src/echo/`, and `npm run build` there writes the static game into
-`games/echo/`. Commit both, because GitHub Pages serves the files as they are. See
-`games-src/echo/CLAUDE.md`.
+A game can be built with tooling (TypeScript, Vite, npm packages) instead of hand-written HTML.
+**Echo** and **Short Rope** are built this way. The source goes in `games-src/<id>/`, and the build
+writes the static game into `games/<id>/`, which is what the site serves.
+
+Checklist for a new one (copy `games-src/echo/vite.config.ts` as a starting point):
+
+1. `games-src/<id>/package.json` with `build` and `test` scripts. Commit `package-lock.json`.
+2. Build into the hub with relative paths: Vite `base: './'` and `build.outDir: '../../games/<id>'`.
+3. Load the SDK in its `index.html`: `<script src="../../shared/gamenight.js" data-game="<id>"></script>`
+   (`data-game` is needed because the dev server doesn't run from `games/<id>/`).
+4. Add `/games/<id>/` to `.gitignore`, and the game to `games.json`.
+5. Run `node scripts/build-games.mjs <id> --test`. The deploy picks it up by itself.
+
+**Bringing in a game that has its own repo:** `git subtree add --prefix=games-src/<id> <path-or-url> main`
+keeps its history. Then delete its own deploy workflow, and change its Vite `base`/`outDir` as above.
+If it has online play, move it onto the room API (see below) so the site has one room system.
+Short Rope's `src/net/net.ts` is a worked example.
+
+**Storage:** every game shares one origin (`<user>.github.io`), so `localStorage` is shared too.
+Prefix your keys with the game's id, or use `GameNight.save/load`, which does that for you.
 
 ## The game SDK (`shared/gamenight.js`)
 
@@ -101,7 +126,9 @@ if (room) {                           // null unless the game is running inside 
 }
 ```
 
-Outside a room, the SDK adds a top bar with a back link, the game title, How to play, mute, and fullscreen. Inside a room, the room page shows its own bar instead. If a game only has the `online` mode and someone opens it directly, the SDK offers to host a room with it.
+Outside a room, the SDK adds a top bar with a back link, the game title, How to play, mute, and fullscreen. Inside a room, the room page shows its own bar instead. A game that fills the window with `position: fixed` should start below the bar: `top: var(--gn-bar-h, 0px)` (the SDK keeps this up to date, and it's 0 inside a room). If a game only has the `online` mode and someone opens it directly, the SDK offers to host a room with it.
+
+Prefix your message types with the game's id (Short Rope uses `sr:lobby`, `sr:snap`, ...).
 
 **Tip for multiplayer games:** let the host decide what happens. Players send their inputs to the host with `sendToHost`, the host checks them, updates the game state, and sends the new state to everyone with `send`. That keeps everyone in sync and makes cheating harder.
 
@@ -121,6 +148,8 @@ assets/css/   base.css (tokens + shared parts), hub.css, room.css
 assets/js/    core.js (site helpers), hub.js, room.js
 assets/icons/ favicon.svg
 shared/       gamenight.js (the SDK every game includes)
-games/<id>/   one folder per game (static files the site serves)
-games-src/    source for games that have a build step (e.g. echo/)
+games/<id>/   one folder per game (static files the site serves; built ones are git-ignored)
+games-src/    source for games that have a build step (echo/, short-rope/)
+scripts/      build-games.mjs: builds every game in games-src/
+.github/      deploy.yml: test, build, publish to GitHub Pages
 ```
