@@ -123,6 +123,7 @@ the first tap).
       last second with a vignette, payoff replay with zoom-out, sting and full-crew music, layered
       music (one layer per copy), every sound synthesized, settings, reduced motion (fades, no shake)
 - [x] M5 Chapter 2: 2-1 to 2-F (switches, inverted/timer doors, keycards, cameras, shutters)
-- [ ] M6 Editor and sharing
+- [x] M6 Editor and sharing: paint, wire, route, inspector, live validation, test play, export /
+      import, share links (`#level=`), autosaved draft, undo
 - [ ] M7 Chapters 3–5
 - [ ] M8 Polish

@@ -87,7 +87,7 @@ function chapterCard(c: Chapter, o: { progress: Progress; unlockAll: boolean; on
   );
 }
 
-export function pauseScreen(o: { level: Level; onResume: () => void; onRestart: () => void; onSettings: () => void; onLevels: () => void; onTitle: () => void }): HTMLElement {
+export function pauseScreen(o: { level: Level; onResume: () => void; onRestart: () => void; onSettings: () => void; onLevels: () => void; onTitle: () => void; levelsLabel?: string }): HTMLElement {
   return h(
     'div',
     { class: 'menu panel pause', role: 'dialog', 'aria-label': 'Paused' },
@@ -100,7 +100,7 @@ export function pauseScreen(o: { level: Level; onResume: () => void; onRestart: 
       h('button', { class: 'btn primary', onclick: o.onResume, autofocus: true }, 'Resume'),
       h('button', { class: 'btn', onclick: o.onRestart }, 'Restart the heist (clears every copy)'),
       h('button', { class: 'btn', onclick: o.onSettings }, 'Settings'),
-      h('button', { class: 'btn', onclick: o.onLevels }, 'Heists'),
+      h('button', { class: 'btn', onclick: o.onLevels }, o.levelsLabel ?? 'Heists'),
       h('button', { class: 'btn ghost', onclick: o.onTitle }, 'Title'),
     ),
     controlsTable(),
@@ -117,6 +117,7 @@ export function controlsTable(): HTMLElement {
     ['Scrub the plan', ', and . · D-pad ←→ · drag the timeline'],
     ['Trim a copy', 'drag the ends of its bar'],
     ['Plan paths', 'P'],
+    ['Show the next step (Assist)', 'H · ? button'],
     ['Pause', 'Esc · Start'],
   ];
   return h('table', { class: 'controls' }, h('tbody', {}, ...rows.map(([a, b]) => h('tr', {}, h('th', {}, a), h('td', {}, b)))));
@@ -132,6 +133,7 @@ export function resultsScreen(o: {
   onNext: () => void;
   onWatch: () => void;
   onLevels: () => void;
+  levelsLabel?: string;
 }): HTMLElement {
   const r = o.result;
   const lv = o.level;
@@ -163,7 +165,7 @@ export function resultsScreen(o: {
       o.hasNext ? h('button', { class: 'btn primary', onclick: o.onNext, autofocus: true }, 'Next heist') : null,
       h('button', { class: 'btn', onclick: o.onRetry, autofocus: !o.hasNext }, 'Play again'),
       h('button', { class: 'btn', onclick: o.onWatch }, 'Watch the plan'),
-      h('button', { class: 'btn ghost', onclick: o.onLevels }, 'Heists'),
+      h('button', { class: 'btn ghost', onclick: o.onLevels }, o.levelsLabel ?? 'Heists'),
     ),
   );
 }

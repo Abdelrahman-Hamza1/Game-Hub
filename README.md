@@ -36,7 +36,8 @@ To test a room, open `http://localhost:8000/room.html` in one window, then join 
 3. The site is at `https://abdelrahman-hamza1.github.io/Game-Hub/`.
 
 Pull requests run the same build and tests without publishing. Built games (`games/echo/`,
-`games/short-rope/`) are git-ignored: the deploy always builds them fresh, so they can't go stale.
+`games/short-rope/`, `games/ten-seconds/`) are git-ignored: the deploy always builds them fresh, so
+they can't go stale.
 
 ## Add a game
 
@@ -80,7 +81,7 @@ Pull requests run the same build and tests without publishing. Built games (`gam
 ### Games with a build step
 
 A game can be built with tooling (TypeScript, Vite, npm packages) instead of hand-written HTML.
-**Echo** and **Short Rope** are built this way. The source goes in `games-src/<id>/`, and the build
+**Echo**, **Short Rope** and **Ten Seconds** are built this way. The source goes in `games-src/<id>/`, and the build
 writes the static game into `games/<id>/`, which is what the site serves.
 
 Checklist for a new one (copy `games-src/echo/vite.config.ts` as a starting point):
@@ -149,7 +150,7 @@ assets/js/    core.js (site helpers), hub.js, room.js
 assets/icons/ favicon.svg
 shared/       gamenight.js (the SDK every game includes)
 games/<id>/   one folder per game (static files the site serves; built ones are git-ignored)
-games-src/    source for games that have a build step (echo/, short-rope/)
+games-src/    source for games that have a build step (echo/, short-rope/, ten-seconds/)
 scripts/      build-games.mjs: builds every game in games-src/
 .github/      deploy.yml: test, build, publish to GitHub Pages
 ```

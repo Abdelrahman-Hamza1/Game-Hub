@@ -15,7 +15,8 @@ export type Action =
   | { kind: 'lane'; n: number }
   | { kind: 'laneStep'; d: 1 | -1 }
   | { kind: 'scrub'; d: 1 | -1 }
-  | { kind: 'paths' };
+  | { kind: 'paths' }
+  | { kind: 'hint' };
 
 const MOVE: Record<string, [number, number]> = {
   KeyW: [0, -1],
@@ -92,6 +93,9 @@ export class Input {
         break;
       case 'KeyP':
         push({ kind: 'paths' });
+        break;
+      case 'KeyH':
+        push({ kind: 'hint' });
         break;
       default:
         if (/^Digit[1-6]$/.test(code)) push({ kind: 'lane', n: Number(code.slice(5)) - 1 });

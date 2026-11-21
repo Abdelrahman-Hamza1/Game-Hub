@@ -5,7 +5,23 @@
 import { HZ } from '../sim/constants';
 import type { Recording } from '../sim/recording';
 import type { EventKind, SimEvent } from '../sim/world';
-import { C, FONT_MONO, FONT_UI, copyColor } from './palette';
+import { C, FONT_MONO, FONT_UI, SHAPES, copyColor, type Shape } from './palette';
+
+function shapePath(g: CanvasRenderingContext2D, s: Shape, x: number, y: number, r: number): void {
+  g.beginPath();
+  if (s === 'circle') return void g.arc(x, y, r, 0, Math.PI * 2);
+  if (s === 'square') return void g.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7);
+  const n = s === 'triangle' ? 3 : s === 'diamond' ? 4 : s === 'pentagon' ? 5 : 6;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+    const k = s === 'triangle' ? 1.2 : 1.08;
+    const px = x + Math.cos(a) * r * k;
+    const py = y + Math.sin(a) * r * k + (s === 'triangle' ? r * 0.15 : 0);
+    if (i === 0) g.moveTo(px, py);
+    else g.lineTo(px, py);
+  }
+  g.closePath();
+}
 
 export interface TimelineState {
   lanes: Recording[];
@@ -25,6 +41,8 @@ export interface TimelineState {
   tip: SimEvent | null;
   /** words for a marker ("rings the bell") */
   describe: (e: SimEvent) => string;
+  /** colour-blind mode: lane chips get their copy's shape */
+  colorblind: boolean;
   /** lanes that ended in a paradox, with the tick */
   paradox: Map<number, number>;
   /** can the player scrub/trim/re-record (not in hard-core) */
@@ -92,7 +110,7 @@ export class Timeline {
 
   resize(): void {
     const r = this.canvas.getBoundingClientRect();
-    this.dpr = Math.min(3, window.devicePixelRatio || 1);
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.w = Math.max(1, r.width);
     this.h = Math.max(1, r.height);
     const W = Math.round(this.w * this.dpr);
@@ -203,10 +221,14 @@ export class Timeline {
     ctx.font = `500 11px ${FONT_MONO}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
+    const phx = this.xOf(s.t, L);
     for (let i = 0; i <= secs; i++) {
       const x = this.xOf(i * HZ, L);
       ctx.fillStyle = i >= secs - 1 && i < secs ? 'rgba(255, 126, 182, 0.8)' : C.muted;
-      if (i < secs) ctx.fillText(String(i), x + (this.xOf(HZ, L) - this.xOf(0, L)) / 2, this.rulerH / 2 + 1);
+      const lx = x + (this.xOf(HZ, L) - this.xOf(0, L)) / 2;
+      // keep clear of the playhead's time label
+      const near = lx > phx - 10 && lx < phx + 48;
+      if (i < secs && !near) ctx.fillText(String(i), lx, this.rulerH / 2 + 1);
       ctx.strokeStyle = 'rgba(143, 163, 192, 0.22)';
       ctx.beginPath();
       ctx.moveTo(Math.round(x) + 0.5, this.rulerH - 4);
@@ -234,8 +256,12 @@ export class Timeline {
       const hov = s.hover && 'lane' in s.hover && s.hover.lane === lane;
       // chip
       ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.arc(18, mid, 8, 0, Math.PI * 2);
+      if (s.colorblind && !(isLive && s.selected < 0)) {
+        shapePath(ctx, SHAPES[lane % SHAPES.length], 18, mid, 8.5);
+      } else {
+        ctx.beginPath();
+        ctx.arc(18, mid, 8, 0, Math.PI * 2);
+      }
       ctx.fill();
       ctx.fillStyle = '#091526';
       ctx.font = `700 10px ${FONT_MONO}`;

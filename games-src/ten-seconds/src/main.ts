@@ -9,7 +9,11 @@ import { loadProgress, loadSettings, mergeBest, read, saveProgress, saveSettings
 import { PlayScreen } from './ui/play';
 import { chapterScreen, isUnlocked, pauseScreen, resultsScreen, settingsScreen, titleScreen } from './ui/screens';
 import { TitleDemo } from './ui/title-demo';
+import { Editor } from './ui/editor';
+import { decodeLevel, type SharedLevel } from './ui/share';
+import { parseLevel, validateLevel } from './sim/level';
 import { clear, focusFirst } from './ui/dom';
+import { startPadNav } from './ui/padnav';
 import type { Session } from './game/session';
 import { solutionFor } from './solutions';
 import { Bot } from './solutions/dsl';
@@ -21,6 +25,7 @@ let settings: Settings = loadSettings();
 let progress = loadProgress();
 let unlockAll = read<boolean>('ten-seconds:unlock') === true;
 let play: PlayScreen | null = null;
+let editor: Editor | null = null;
 let demo: TitleDemo | null = null;
 let lastLevelId: string | null = read<string>('ten-seconds:last');
 
@@ -34,7 +39,22 @@ const unlock = () => audio.unlock();
 window.addEventListener('pointerdown', unlock, { capture: true });
 window.addEventListener('keydown', unlock, { capture: true });
 
+/** What B / Esc does in the current menu. */
+let menuBack: (() => void) | null = null;
+startPadNav(
+  () => (overlay.childElementCount ? (overlay.firstElementChild as HTMLElement) : null),
+  () => menuBack?.(),
+);
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && overlay.childElementCount && menuBack && !(e.target as HTMLElement)?.closest?.('.pause')) {
+    e.preventDefault();
+    menuBack();
+  }
+});
+
 function showOverlay(el: HTMLElement | null, kind: 'full' | 'over' = 'full'): void {
+  menuBack = null;
   clear(overlay);
   overlay.className = el ? `screen ${kind}` : 'screen';
   if (el) {
@@ -53,6 +73,48 @@ function stopPlay(): void {
   }
 }
 
+function stopEditor(): void {
+  if (editor) {
+    editor.stop();
+    editor.root.remove();
+    editor = null;
+  }
+}
+
+/** Where a custom level came from: the editor (back goes there) or a shared link. */
+let customFrom: 'editor' | 'link' | null = null;
+let customShared: SharedLevel | null = null;
+
+function toEditor(initial?: SharedLevel | null): void {
+  stopPlay();
+  stopDemo();
+  stopEditor();
+  showOverlay(null);
+  input.enabled = false;
+  history.replaceState(null, '', location.pathname + location.search);
+  editor = new Editor({
+    initial: initial ?? null,
+    onExit: () => {
+      stopEditor();
+      toTitle();
+    },
+    onTest: (lv) => {
+      customFrom = 'editor';
+      customShared = editor ? editor.shared() : null;
+      stopEditor();
+      startLevel(lv);
+    },
+  });
+  app.prepend(editor.root);
+  editor.start();
+}
+
+/** Back from a custom level: to the editor (with the same level) or the title. */
+function leaveCustom(): void {
+  if (customFrom === 'editor' || customFrom === 'link') toEditor(customShared);
+  else toTitle();
+}
+
 function stopDemo(): void {
   demo?.stop();
   demo = null;
@@ -62,17 +124,20 @@ function stopDemo(): void {
 
 function toTitle(): void {
   stopPlay();
+  stopEditor();
+  customFrom = null;
   history.replaceState(null, '', location.pathname + location.search);
   const next = continueLevel();
   const el = titleScreen({
     continueLabel: next && Object.keys(progress.best).length ? `Continue: ${next.id} ${next.name}` : 'Start the first heist',
     onPlay: () => next && startLevel(next),
     onChapters: toChapters,
-    onEditor: () => {},
+    onEditor: () => toEditor(),
     onSettings: () => toSettings(toTitle),
-    hasEditor: false,
+    hasEditor: true,
   });
   showOverlay(el);
+  menuBack = null;
   stopDemo();
   demo = new TitleDemo(el);
   demo.start();
@@ -93,9 +158,11 @@ function continueLevel(): Level | undefined {
 
 function toChapters(focusId?: string): void {
   stopPlay();
+  stopEditor();
   stopDemo();
   history.replaceState(null, '', location.pathname + location.search);
   showOverlay(chapterScreen({ progress, unlockAll, onLevel: startLevel, onBack: toTitle, focusId: focusId ?? lastLevelId ?? undefined }));
+  menuBack = toTitle;
 }
 
 function toSettings(back: () => void): void {
@@ -120,6 +187,7 @@ function toSettings(back: () => void): void {
     }),
     inLevel ? 'over' : 'full',
   );
+  menuBack = back;
 }
 
 function startLevel(lv: Level): void {
@@ -129,7 +197,10 @@ function startLevel(lv: Level): void {
   showOverlay(null);
   lastLevelId = lv.id;
   write('ten-seconds:last', lv.id);
-  if (!lv.id.startsWith('custom')) history.replaceState(null, '', `#play=${lv.id}`);
+  if (!lv.id.startsWith('custom')) {
+    customFrom = null;
+    history.replaceState(null, '', `#play=${lv.id}`);
+  }
   play = new PlayScreen({
     level: lv,
     difficulty: settings.difficulty,
@@ -162,10 +233,12 @@ function pause(lv: Level): void {
     onResume: resume,
     onRestart: () => startLevel(lv),
     onSettings: () => toSettings(() => pause(lv)),
-    onLevels: () => toChapters(lv.id),
+    onLevels: () => (lv.id.startsWith('custom') ? leaveCustom() : toChapters(lv.id)),
     onTitle: toTitle,
+    levelsLabel: lv.id.startsWith('custom') ? (customFrom === 'editor' ? 'Back to the editor' : 'Open in the editor') : 'Heists',
   });
   showOverlay(el, 'over');
+  menuBack = resume;
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -201,7 +274,8 @@ function onWin(lv: Level, s: Session, replay: () => void): void {
         input.enabled = true;
         replay();
       },
-      onLevels: () => toChapters(lv.id),
+      onLevels: () => (isCustom ? leaveCustom() : toChapters(lv.id)),
+      levelsLabel: isCustom ? (customFrom === 'editor' ? 'Back to the editor' : 'Open in the editor') : 'Heists',
     }),
     'over',
   );
@@ -212,9 +286,33 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden && play && overlay.childElementCount === 0 && play.session.phase === 'recording') play.requestPause();
 });
 
+function toast(text: string): void {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3600);
+}
+
 // ---------- boot ----------
 
 function boot(): void {
+  const share = location.hash.match(/^#level=([A-Za-z0-9_-]+)$/);
+  if (share) {
+    void decodeLevel(share[1]).then((sh) => {
+      const lv = sh ? parseLevel('custom', sh.text, sh.json) : null;
+      if (!sh || !lv || validateLevel(lv).length) {
+        toTitle();
+        toast("That level link doesn't work: it may be cut short.");
+        return;
+      }
+      customFrom = 'link';
+      customShared = sh;
+      startLevel(lv);
+      history.replaceState(null, '', location.pathname + location.search + location.hash);
+    });
+    return;
+  }
   const m = location.hash.match(/^#play=(\d-(?:\d|F))$/);
   const lv = m ? levelById(m[1]) : undefined;
   if (lv && isUnlocked(lv.id, progress, unlockAll)) startLevel(lv);

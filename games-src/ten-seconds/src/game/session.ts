@@ -164,7 +164,7 @@ export class Session {
   trim(n: number, delay: number, cut: number): void {
     const r = this.lanes[n];
     if (!r || !this.diff.timeline) return;
-    setTrim(r, delay, cut, this.slotTicks(n + 1));
+    setTrim(r, delay, cut, this.slotTicks(this.liveSlot()));
     this.prepare();
   }
 

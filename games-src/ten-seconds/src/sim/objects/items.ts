@@ -4,10 +4,20 @@ import { Tile } from '../level';
 import { nearestTile, tryCrouch } from '../actors';
 import { hearNoise } from '../threats/guard';
 import type { Actor, World } from '../world';
+import { nearestKindTrain, opaqueAtPoint, tileAtPoint } from '../train';
 
 /** The trigger whose tile this point stands on (with a small margin), or -1. */
 export function triggerUnder(w: World, x: number, y: number): number {
   const lv = w.lv;
+  if (w.offs.length) {
+    for (const [ox, oy] of [[0, 0], [-PLATE_MARGIN, 0], [PLATE_MARGIN, 0], [0, -PLATE_MARGIN], [0, PLATE_MARGIN]]) {
+      const p = tileAtPoint(w, x + ox, y + oy);
+      if (p.mx < 0 || p.my < 0 || p.mx >= lv.w || p.my >= lv.h) continue;
+      const g = lv.triggerAt[p.my * lv.w + p.mx];
+      if (g >= 0) return g;
+    }
+    return -1;
+  }
   for (let ty = Math.floor(y - PLATE_MARGIN); ty <= Math.floor(y + PLATE_MARGIN); ty++) {
     for (let tx = Math.floor(x - PLATE_MARGIN); tx <= Math.floor(x + PLATE_MARGIN); tx++) {
       if (tx < 0 || ty < 0 || tx >= lv.w || ty >= lv.h) continue;
@@ -84,6 +94,7 @@ function drop(w: World, a: Actor): void {
 }
 
 function passThroughWindow(w: World, a: Actor): boolean {
+  if (w.offs.length) return passThroughWindowTrain(w, a);
   const win = nearestTile(w, a.x, a.y, Tile.Window, WINDOW_REACH);
   if (!win) return false;
   const dx = win[0] + 0.5 - a.x;
@@ -106,6 +117,31 @@ function passThroughWindow(w: World, a: Actor): boolean {
   return true;
 }
 
+/** Windows on a train level: they may be in a moving carriage. */
+function passThroughWindowTrain(w: World, a: Actor): boolean {
+  const win = nearestKindTrain(w, a.x, a.y, Tile.Window, WINDOW_REACH);
+  if (!win) return false;
+  const dx = win[0] - a.x;
+  const dy = win[1] - a.y;
+  let tx = win[0];
+  let ty = win[1];
+  if (Math.abs(dx) >= Math.abs(dy)) tx += Math.sign(dx) || 1;
+  else ty += Math.sign(dy) || 1;
+  const p = tileAtPoint(w, tx, ty);
+  if (p.t !== Tile.Floor && !(p.t === Tile.Door && w.doorOpen[w.lv.doorAt[p.my * w.lv.w + p.mx]])) return false;
+  const i = a.carry;
+  const it = w.items[i];
+  it.carrier = -1;
+  it.x = tx;
+  it.y = ty;
+  it.noPick = a.idx;
+  it.noPickUntil = w.t + DROP_COOLDOWN;
+  it.mustLeave = false;
+  a.carry = -1;
+  w.emit('pass', a.idx, a.x, a.y, i);
+  return true;
+}
+
 function throwCoin(w: World, a: Actor): void {
   const i = a.carry;
   const it = w.items[i];
@@ -117,10 +153,14 @@ function throwCoin(w: World, a: Actor): void {
   while (d + step <= COIN_RANGE) {
     const x = a.x + cx * (d + step);
     const y = a.y + cy * (d + step);
-    const tx = Math.floor(x);
-    const ty = Math.floor(y);
-    const t = w.tileAt(tx, ty);
-    if (t === Tile.Wall || t === Tile.Emitter || (t === Tile.Door && w.doorClosedAt(tx, ty))) break;
+    if (w.offs.length) {
+      if (opaqueAtPoint(w, x, y)) break;
+    } else {
+      const tx = Math.floor(x);
+      const ty = Math.floor(y);
+      const t = w.tileAt(tx, ty);
+      if (t === Tile.Wall || t === Tile.Emitter || (t === Tile.Door && w.doorClosedAt(tx, ty))) break;
+    }
     if (w.crates.some((c) => Math.abs(c.x - x) < 0.45 && Math.abs(c.y - y) < 0.45)) break;
     d += step;
   }

@@ -16,6 +16,8 @@ import type { Recording } from '../sim/recording';
 import { Preview } from '../sim/scrub';
 import type { Caught, SimEvent, World } from '../sim/world';
 import type { LiveInput } from '../sim/actors';
+import { solutionFor } from '../solutions';
+import { runSolution } from '../solutions/run';
 import { h } from './dom';
 import { copyColor } from '../render/palette';
 
@@ -69,6 +71,10 @@ export class PlayScreen {
   private payoff: { world: World; t0: number; stung: boolean; lanes: Recording[] } | null = null;
   private lastNote = '';
   private showPaths: boolean;
+  private touchBar: HTMLElement;
+  /** Assist: the intended solution's recordings, and whether the next one is shown */
+  private hintRecs: Recording[] | null = null;
+  private showNext = false;
   /** drives the live player instead of the input (automated browser checks, assist demos) */
   autopilot: ((w: World) => LiveInput) | null = null;
 
@@ -83,7 +89,8 @@ export class PlayScreen {
     this.hud = h('div', { class: 'hud' });
     this.banner = h('div', { class: 'banner', role: 'status', 'aria-live': 'polite' });
     this.hint = h('div', { class: 'hint' });
-    const stage = h('div', { class: 'stage' }, this.mapCanvas, this.hud, this.banner, this.hint);
+    this.touchBar = this.buildTouchBar();
+    const stage = h('div', { class: 'stage' }, this.mapCanvas, this.hud, this.banner, this.hint, this.touchBar);
     this.root = h('div', { class: 'play' }, stage, this.tlCanvas);
     this.renderer = new Renderer(this.mapCanvas);
     this.renderer.setLevel(o.level);
@@ -91,6 +98,52 @@ export class PlayScreen {
     this.bindPointer();
     this.refreshPlan();
     this.showHint(true);
+  }
+
+  private buildTouchBar(): HTMLElement {
+    const btn = (label: string, aria: string, a: Action, cls = '') =>
+      h('button', {
+        class: `tbtn ${cls}`,
+        'aria-label': aria,
+        onpointerdown: (e: Event) => {
+          e.preventDefault();
+          audio.unlock();
+          this.o.input.last = 'touch';
+          this.o.input.push(a);
+        },
+      }, label);
+    const bar = h(
+      'div',
+      { class: 'touchbar' },
+      btn('⏸', 'Pause', { kind: 'pause' }),
+      btn('↺', 'Retry this loop', { kind: 'retry' }),
+      btn('⌫', 'Delete the last copy', { kind: 'delete' }),
+      this.session.diff.hints ? btn('?', 'Show the next step', { kind: 'hint' }) : null,
+      btn('Use', 'Use', { kind: 'use' }, 'use'),
+    );
+    return bar;
+  }
+
+  /** Assist: show (or hide) the intended next loop on the map. */
+  private toggleHint(): void {
+    if (!this.session.diff.hints) return;
+    if (!this.hintRecs) {
+      const sol = solutionFor(this.lv.id);
+      if (!sol) return this.say('No hint for this level.');
+      const r = runSolution(this.lv, sol, 'normal');
+      this.hintRecs = [...r.session.lanes, r.session.rec];
+    }
+    this.showNext = !this.showNext;
+    const k = this.session.selected >= 0 ? this.session.selected : this.session.lanes.length;
+    const rec = this.hintRecs[k];
+    const again = this.o.input.last === 'touch' ? 'Tap ? again' : 'Press H again';
+    if (this.showNext) this.say(rec ? `Next step: loop ${k + 1} of the plan is drawn on the map. ${again} to hide it.` : 'Your plan already has every step. Try this loop as the runner.');
+  }
+
+  private ghostRec(): Recording | null {
+    if (!this.showNext || !this.hintRecs) return null;
+    const k = this.session.selected >= 0 ? this.session.selected : this.session.lanes.length;
+    return this.hintRecs[k] ?? null;
   }
 
   // ---------- lifecycle ----------
@@ -254,6 +307,9 @@ export class PlayScreen {
         if (!s.diff.timeline) return;
         this.scrubTo((this.scrubT ?? 0) + a.d * 30);
         return;
+      case 'hint':
+        this.toggleHint();
+        return;
       case 'paths':
         this.showPaths = !this.showPaths;
         this.o.onPathsToggle?.(this.showPaths);
@@ -300,6 +356,8 @@ export class PlayScreen {
   private finishRewind(): void {
     const s = this.session;
     const full = s.note === 'full';
+    const rewound = s.world.rewound;
+    const at = (s.world.t / HZ).toFixed(1);
     s.prepare();
     this.view = 'play';
     this.renderer.clearFx();
@@ -309,6 +367,13 @@ export class PlayScreen {
       audio.denied();
     } else {
       audio.chime();
+      if (rewound) {
+        const n0 = s.lanes.length;
+        const [sx0, sy0] = this.lv.start;
+        this.renderer.ring(sx0 + 0.5, sy0 + 0.5, copyColor(s.lastLane), performance.now() / 1000);
+        this.say(`The Watchmaker rewound the room at ${at} s: his levers weren't all held. Copy ${s.lastLane + 1} keeps what you did until then. Loop ${n0 + 1}.`, 'warn');
+        return;
+      }
       const n = s.lanes.length;
       const [sx, sy] = this.lv.start;
       this.renderer.ring(sx + 0.5, sy + 0.5, copyColor(s.lastLane), performance.now() / 1000);
@@ -463,6 +528,7 @@ export class PlayScreen {
       zoom,
       shake,
       urgency: s.diff.lastSecond < 1 ? urgency : 0,
+      ghost: this.view === 'play' ? this.ghostRec() : null,
       dim: this.paused ? 0.55 : 0,
     });
     this.timeline.draw(this.tlState(w));
@@ -501,6 +567,7 @@ export class PlayScreen {
       drag: this.drag?.hit ?? null,
       tip: this.tip,
       describe: (e) => this.describeEvent(e),
+      colorblind: this.o.colorblind,
     };
   }
 

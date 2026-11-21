@@ -1,4 +1,8 @@
-/** The Watchmaker rewinds the room every few seconds, unless all his escapement levers are held. */
+/**
+ * The Watchmaker rewinds the room every few seconds, unless all his escapement levers are held.
+ * His rewind ends the loop early, the way the clock running out does: the recording so far is
+ * kept as a copy (which then stands still), so lever holders can be recorded one at a time.
+ */
 import { HZ } from '../constants';
 import { triggerActive } from '../objects/triggers';
 import type { World } from '../world';
@@ -14,6 +18,6 @@ export function watchmakerCheck(w: World): void {
   });
   if (held) return;
   w.rewound = true;
-  const cx = w.lv.w / 2;
-  w.fail({ by: 'watchmaker', index: 0, actor: -1, t: w.t, x0: cx, y0: 1, x1: cx, y1: 1 });
+  w.status = 'over';
+  w.emit('rewound', -1, w.lv.w / 2, 1);
 }

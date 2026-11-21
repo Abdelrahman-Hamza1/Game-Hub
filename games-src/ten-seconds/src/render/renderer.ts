@@ -10,6 +10,7 @@ import { rayLength } from '../sim/vision';
 import type { Caught, SimEvent, World } from '../sim/world';
 import { cameraBlind } from '../sim/threats/camera';
 import { triggerActive } from '../sim/objects/triggers';
+import { tileDX } from '../sim/train';
 import { C, FONT_MONO, FONT_UI, SHAPES, copyColor, type Shape } from './palette';
 
 export interface DrawOpts {
@@ -35,6 +36,8 @@ export interface DrawOpts {
   shake?: number;
   /** 0..1: the slow last second (a pink vignette) */
   urgency?: number;
+  /** Assist: the intended next loop, drawn as a dashed ghost path */
+  ghost?: Recording | null;
 }
 
 interface Fx {
@@ -85,7 +88,7 @@ export class Renderer {
   /** Fit the canvas to its element and pick the tile size. */
   resize(): void {
     const r = this.canvas.getBoundingClientRect();
-    this.dpr = Math.min(3, window.devicePixelRatio || 1);
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.cssW = Math.max(1, r.width);
     this.cssH = Math.max(1, r.height);
     const w = Math.round(this.cssW * this.dpr);
@@ -107,7 +110,7 @@ export class Renderer {
     const availW = this.cssW - 16;
     const availH = this.cssH - this.padTop - this.padBottom;
     let tile = Math.min(availW / lv.w, availH / lv.h, 40);
-    const minTile = this.cssW < 600 ? 11 : 14;
+    const minTile = this.cssW < 600 ? 9 : 14;
     tile = Math.max(tile, minTile) / zoom;
     this.tile = tile;
     const mapW = lv.w * tile;
@@ -189,6 +192,12 @@ export class Renderer {
     this.drawBackdropGrid();
     this.ensureLayer();
     if (this.layer) ctx.drawImage(this.layer, this.ox, this.oy, lv.w * this.tile, lv.h * this.tile);
+    lv.carriages.forEach((c, k) => {
+      const img = this.carLayers[k];
+      if (!img) return;
+      const o = w.offs[k] ?? 0;
+      ctx.drawImage(img, this.ox + (c.rect[0] + o) * this.tile, this.oy + c.rect[1] * this.tile, c.w * this.tile, c.h * this.tile);
+    });
 
     // tile space
     const s = this.tile;
@@ -199,6 +208,7 @@ export class Renderer {
     this.drawLasers(w, px, o.now);
     this.drawCones(w, o.alpha, px);
     if (o.showPaths) this.drawPaths(w, o, px);
+    if (o.ghost) this.drawGhost(w, o.ghost, px, o.now);
     this.drawStones(w, px, o.now);
     this.drawCrates(w, o.alpha, px);
     this.drawItems(w, o.alpha, px, o.now, false);
@@ -244,12 +254,30 @@ export class Renderer {
     ctx.stroke();
   }
 
+  private carLayers: HTMLCanvasElement[] = [];
+
   private ensureLayer(): void {
     const lv = this.lv!;
     const scale = this.tile * this.dpr;
     const key = `${lv.id}:${lv.text.length}:${scale.toFixed(3)}`;
     if (key === this.layerKey && this.layer) return;
     this.layerKey = key;
+    // each carriage is its own little blueprint, slid into place every frame
+    this.carLayers = lv.carriages.map((c) => {
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.ceil(c.w * scale));
+      cv.height = Math.max(1, Math.ceil(c.h * scale));
+      const g = cv.getContext('2d')!;
+      g.setTransform(scale, 0, 0, scale, 0, 0);
+      const mini = { w: c.w, h: c.h, tiles: c.tiles, exits: [], exitAt: new Uint8Array(c.w * c.h), start: [-1, -1], bells: [], carriages: [], carriageAt: new Int8Array(c.w * c.h).fill(-1) } as unknown as Level;
+      g.fillStyle = '#0d2038';
+      g.fillRect(0, 0, c.w, c.h);
+      paintLayer(g, mini, 1 / this.tile);
+      g.strokeStyle = 'rgba(255, 194, 75, 0.55)';
+      g.lineWidth = 2 / this.tile;
+      g.strokeRect(0.04, 0.04, c.w - 0.08, c.h - 0.08);
+      return cv;
+    });
     const cv = this.layer ?? document.createElement('canvas');
     cv.width = Math.max(1, Math.ceil(lv.w * scale));
     cv.height = Math.max(1, Math.ceil(lv.h * scale));
@@ -266,12 +294,13 @@ export class Renderer {
     const lv = w.lv;
     lv.triggers.forEach((def, g) => {
       const on = triggerActive(w, g);
-      for (const [tx, ty] of def.tiles) {
+      for (const [tx0, ty] of def.tiles) {
+        const tx = tx0 + tileDX(w, tx0, ty);
         const x = tx + 0.5;
         const y = ty + 0.5;
         if (def.type === 'plate' || def.type === 'lever') {
           // multi-tile plates draw as one slab: inset only on edges that aren't shared
-          const same = (dx: number, dy: number) => lv.triggerAt[(ty + dy) * lv.w + tx + dx] === g;
+          const same = (dx: number, dy: number) => lv.triggerAt[(ty + dy) * lv.w + tx0 + dx] === g;
           const x0 = tx + (same(-1, 0) ? 0 : 0.12);
           const x1 = tx + 1 - (same(1, 0) ? 0 : 0.12);
           const y0 = ty + (same(0, -1) ? 0 : 0.12);
@@ -348,8 +377,9 @@ export class Renderer {
     const lv = w.lv;
     lv.doors.forEach((d, i) => {
       const open = w.doorOpen[i];
-      for (const [tx, ty] of d.tiles) {
-        const horiz = isWallish(lv, tx - 1, ty) || isWallish(lv, tx + 1, ty) || lv.doorAt[ty * lv.w + tx - 1] === i || lv.doorAt[ty * lv.w + tx + 1] === i;
+      for (const [tx0, ty] of d.tiles) {
+        const tx = tx0 + tileDX(w, tx0, ty);
+        const horiz = isWallishAt(w, tx0 - 1, ty) || isWallishAt(w, tx0 + 1, ty) || lv.doorAt[ty * lv.w + tx0 - 1] === i || lv.doorAt[ty * lv.w + tx0 + 1] === i;
         if (open) {
           ctx.strokeStyle = C.doorOpen;
           ctx.lineWidth = 2 * px;
@@ -376,7 +406,7 @@ export class Renderer {
         ctx.font = `700 ${0.42}px ${FONT_MONO}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        if (d.tiles[0][0] === tx && d.tiles[0][1] === ty) ctx.fillText(d.letter, tx + 0.5, ty + 0.52);
+        if (d.tiles[0][0] === tx0 && d.tiles[0][1] === ty) ctx.fillText(d.letter, tx + 0.5, ty + 0.52);
       }
     });
   }
@@ -506,6 +536,40 @@ export class Renderer {
       }
       ctx.globalAlpha = 1;
     });
+  }
+
+  private drawGhost(w: World, r: Recording, px: number, now: number): void {
+    const ctx = this.ctx;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 2 * px;
+    ctx.setLineDash([4 * px, 4 * px]);
+    ctx.lineDashOffset = -now * 12 * px;
+    ctx.beginPath();
+    for (let f = 0; f < r.len; f += 2) {
+      if (f === 0) ctx.moveTo(r.xs[0], r.ys[0]);
+      else ctx.lineTo(r.xs[f], r.ys[f]);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // uses along the way
+    ctx.fillStyle = '#fff';
+    for (let f = 0; f < r.len; f++) {
+      if (!r.act[f]) continue;
+      ctx.beginPath();
+      ctx.arc(r.xs[f], r.ys[f], 0.22, 0, TAU);
+      ctx.fill();
+    }
+    // a ghost walking it in time with the clock
+    const f = Math.min(r.len - 1, Math.max(0, w.t));
+    if (r.len) {
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2 * px;
+      ctx.beginPath();
+      ctx.arc(r.xs[f], r.ys[f], BODY_R * 0.8, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
   }
 
   private drawStones(w: World, px: number, now: number): void {
@@ -919,6 +983,17 @@ export class Renderer {
 
 // ---------- the blueprint layer ----------
 
+/** Wall-like at a map tile, counting a carriage's own tiles where it was drawn. */
+function isWallishAt(w: World, x: number, y: number): boolean {
+  const lv = w.lv;
+  if (x < 0 || y < 0 || x >= lv.w || y >= lv.h) return true;
+  const k = lv.carriageAt[y * lv.w + x];
+  if (k < 0) return isWallish(lv, x, y);
+  const c = lv.carriages[k];
+  const t = c.tiles[(y - c.rect[1]) * c.w + x - c.rect[0]];
+  return t === Tile.Wall || t === Tile.Emitter;
+}
+
 function isWallish(lv: Level, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= lv.w || y >= lv.h) return true;
   const t = lv.tiles[y * lv.w + x];
@@ -1024,6 +1099,29 @@ function paintLayer(g: CanvasRenderingContext2D, lv: Level, px: number): void {
       }
     }
   }
+
+  // railway track: one pair of rails down the middle of each band, with sleepers
+  const isTrack = (x: number, y: number) => x >= 0 && y >= 0 && x < lv.w && y < lv.h && lv.tiles[y * lv.w + x] === Tile.Track;
+  g.strokeStyle = 'rgba(143, 163, 192, 0.5)';
+  g.lineWidth = 1.4 * px;
+  g.beginPath();
+  for (let x = 0; x < lv.w; x++) {
+    for (let y = 0; y < lv.h; y++) {
+      if (!isTrack(x, y) || isTrack(x, y - 1)) continue;
+      let yb = y;
+      while (isTrack(x, yb + 1)) yb++;
+      const c = (y + yb + 1) / 2;
+      g.moveTo(x, c - 0.32);
+      g.lineTo(x + 1, c - 0.32);
+      g.moveTo(x, c + 0.32);
+      g.lineTo(x + 1, c + 0.32);
+      for (const sx of [0.25, 0.75]) {
+        g.moveTo(x + sx, c - 0.48);
+        g.lineTo(x + sx, c + 0.48);
+      }
+    }
+  }
+  g.stroke();
 
   // exit zone: dashed green around the E region
   g.fillStyle = 'rgba(91, 228, 155, 0.08)';

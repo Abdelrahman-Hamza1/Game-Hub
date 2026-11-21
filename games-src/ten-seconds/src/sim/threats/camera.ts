@@ -15,7 +15,13 @@ export function updateCamera(w: World, c: CameraState, i: number): void {
 }
 
 export function cameraBlind(w: World, c: CameraState): boolean {
-  return w.t < c.blindUntil;
+  return w.t < c.blindUntil || inBlackout(w);
+}
+
+/** The lights are out (a train tunnel): every camera is blind. */
+export function inBlackout(w: World): boolean {
+  for (const [a, b] of w.lv.blackouts) if (w.t >= a * HZ && w.t < b * HZ) return true;
+  return false;
 }
 
 export function cameraDetect(w: World, c: CameraState, i: number): Caught | null {

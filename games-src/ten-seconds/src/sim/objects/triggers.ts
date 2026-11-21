@@ -1,6 +1,7 @@
 /** Plates and levers are pressed while a body or crate stands on them; buttons time out. */
 import { PLATE_MARGIN } from '../constants';
 import type { World } from '../world';
+import { tileDX } from '../train';
 
 export function updateTriggers(w: World, init: boolean): void {
   const lv = w.lv;
@@ -9,8 +10,9 @@ export function updateTriggers(w: World, init: boolean): void {
     if (def.type !== 'plate' && def.type !== 'lever') continue;
     let pressed = false;
     for (const [tx, ty] of def.tiles) {
-      const x0 = tx - PLATE_MARGIN;
-      const x1 = tx + 1 + PLATE_MARGIN;
+      const ox = w.offs.length ? tileDX(w, tx, ty) : 0;
+      const x0 = tx + ox - PLATE_MARGIN;
+      const x1 = tx + ox + 1 + PLATE_MARGIN;
       const y0 = ty - PLATE_MARGIN;
       const y1 = ty + 1 + PLATE_MARGIN;
       for (const a of w.actors) {

@@ -8,6 +8,9 @@ import { Tile } from './level';
 import { ACT_USE, pushFrame } from './recording';
 import { useAction } from './objects/items';
 import type { Actor, World } from './world';
+import { solidBoxes } from './train';
+
+const BOX: number[] = [];
 
 export interface LiveInput {
   /** direction, magnitude ≤ 1 */
@@ -230,6 +233,10 @@ export function pushCrates(w: World, x0: number, y0: number, x1: number, y1: num
 
 function crateFree(w: World, self: { x: number; y: number }, x: number, y: number): boolean {
   const h = CRATE_HALF;
+  if (w.offs.length) {
+    solidBoxes(w, x - h, y - h, x + h - 1e-9, y + h - 1e-9, false, BOX);
+    for (let i = 0; i < BOX.length; i += 4) if (Math.abs(BOX[i] - x) < BOX[i + 2] + h && Math.abs(BOX[i + 1] - y) < BOX[i + 3] + h) return false;
+  } else
   for (let ty = Math.floor(y - h); ty <= Math.floor(y + h - 1e-9); ty++) {
     for (let tx = Math.floor(x - h); tx <= Math.floor(x + h - 1e-9); tx++) {
       if (w.solidFor(tx, ty, false)) return false;
@@ -253,6 +260,10 @@ export function circleBox(cx: number, cy: number, r: number, bx: number, by: num
 /** Would a copy at (x, y) be inside something solid? (paradox) */
 export function blockedAt(w: World, a: Actor, x: number, y: number, vaulting: boolean): boolean {
   const r = COLLIDE_R - EPS;
+  if (w.offs.length) {
+    solidBoxes(w, x - r, y - r, x + r, y + r, vaulting, BOX);
+    for (let i = 0; i < BOX.length; i += 4) if (circleRect(x, y, r, BOX[i], BOX[i + 1], BOX[i + 2], BOX[i + 3])) return true;
+  } else
   for (let ty = Math.floor(y - r); ty <= Math.floor(y + r); ty++) {
     for (let tx = Math.floor(x - r); tx <= Math.floor(x + r); tx++) {
       if (!w.solidFor(tx, ty, vaulting)) continue;
@@ -260,9 +271,9 @@ export function blockedAt(w: World, a: Actor, x: number, y: number, vaulting: bo
     }
   }
   for (const c of w.crates) if (circleBox(x, y, r, c.x, c.y, CRATE_HALF)) return true;
-  if (w.lv.bodiesCollide) {
+  if (w.lv.bodiesCollide && a.out) {
     for (const o of w.actors) {
-      if (o === a) continue;
+      if (o === a || !o.out) continue;
       if (Math.hypot(o.x - x, o.y - y) < (COLLIDE_R - EPS) * 2) return true;
     }
   }
@@ -275,6 +286,10 @@ export function resolve(w: World, a: Actor): void {
   const vaulting = a.vaultUntil > w.t;
   for (let iter = 0; iter < 4; iter++) {
     let moved = false;
+    if (w.offs.length) {
+      solidBoxes(w, a.x - r, a.y - r, a.x + r, a.y + r, vaulting, BOX);
+      for (let i = 0; i < BOX.length; i += 4) if (pushOutRect(a, BOX[i], BOX[i + 1], BOX[i + 2], BOX[i + 3], r)) moved = true;
+    } else
     for (let ty = Math.floor(a.y - r); ty <= Math.floor(a.y + r); ty++) {
       for (let tx = Math.floor(a.x - r); tx <= Math.floor(a.x + r); tx++) {
         if (!w.solidFor(tx, ty, vaulting)) continue;
@@ -282,9 +297,9 @@ export function resolve(w: World, a: Actor): void {
       }
     }
     for (const c of w.crates) if (pushOut(a, c.x, c.y, CRATE_HALF, r)) moved = true;
-    if (w.lv.bodiesCollide) {
+    if (w.lv.bodiesCollide && a.out) {
       for (const o of w.actors) {
-        if (o === a) continue;
+        if (o === a || !o.out) continue;
         const dx = a.x - o.x;
         const dy = a.y - o.y;
         const d = Math.hypot(dx, dy);
@@ -301,6 +316,40 @@ export function resolve(w: World, a: Actor): void {
     }
     if (!moved) return;
   }
+}
+
+function circleRect(cx: number, cy: number, r: number, bx: number, by: number, hx: number, hy: number): boolean {
+  const px = Math.max(bx - hx, Math.min(cx, bx + hx));
+  const py = Math.max(by - hy, Math.min(cy, by + hy));
+  const dx = cx - px;
+  const dy = cy - py;
+  return dx * dx + dy * dy < r * r;
+}
+
+/** Push a circle out of a rectangle (half sizes hx, hy). True if it moved. */
+function pushOutRect(a: { x: number; y: number }, bx: number, by: number, hx: number, hy: number, r: number): boolean {
+  const px = Math.max(bx - hx, Math.min(a.x, bx + hx));
+  const py = Math.max(by - hy, Math.min(a.y, by + hy));
+  const dx = a.x - px;
+  const dy = a.y - py;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= r * r) return false;
+  if (d2 > 1e-12) {
+    const d = Math.sqrt(d2);
+    a.x = px + (dx / d) * r;
+    a.y = py + (dy / d) * r;
+    return true;
+  }
+  const l = a.x - (bx - hx);
+  const ri = bx + hx - a.x;
+  const u = a.y - (by - hy);
+  const dn = by + hy - a.y;
+  const m = Math.min(l, ri, u, dn);
+  if (m === l) a.x = bx - hx - r;
+  else if (m === ri) a.x = bx + hx + r;
+  else if (m === u) a.y = by - hy - r;
+  else a.y = by + hy + r;
+  return true;
 }
 
 /** Push a circle out of a box. True if it moved. */

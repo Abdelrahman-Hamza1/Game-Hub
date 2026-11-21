@@ -12,6 +12,8 @@ export enum Tile {
   Low = 3,
   Door = 4,
   Emitter = 5,
+  /** railway track: nobody stands on it, but you can see across it */
+  Track = 6,
 }
 
 export type Pt = [number, number];
@@ -100,6 +102,20 @@ export interface LampDef {
   period: number;
 }
 
+/**
+ * A train carriage: everything drawn inside `rect` slides along x together, following `path`
+ * (keyframes [seconds, offset in tiles], linear between, holding after the last). Where the
+ * carriage was drawn becomes track. Anything standing in it rides with it.
+ */
+export interface CarriageDef {
+  rect: [number, number, number, number];
+  path: [number, number][];
+  /** the carriage's own tiles, local to rect (w × h) */
+  w: number;
+  h: number;
+  tiles: Uint8Array;
+}
+
 export interface WatchmakerDef {
   /** seconds between his rewinds */
   every: number;
@@ -139,6 +155,11 @@ export interface Level {
   hounds: Pt[];
   lamps: LampDef[];
   watchmaker: WatchmakerDef | null;
+  carriages: CarriageDef[];
+  /** for each map tile: the carriage drawn there, or -1 */
+  carriageAt: Int8Array;
+  /** cameras go dark (seconds), e.g. a train tunnel */
+  blackouts: [number, number][];
   /** the source, for the editor and share codes */
   text: string;
   json: LevelJson;
@@ -163,6 +184,8 @@ export interface LevelJson {
   cameras?: Partial<{ from: number; to: number; period: number; phase: number }>[];
   lasers?: Partial<{ dir: Dir; period: number; on: number; phase: number }>[];
   lamps?: LampDef[];
+  carriages?: { rect: [number, number, number, number]; path: [number, number][] }[];
+  blackouts?: [number, number][];
   watchmaker?: WatchmakerDef;
 }
 
@@ -211,6 +234,9 @@ export function parseLevel(id: string, text: string, json: LevelJson): Level {
     hounds: [],
     lamps: json.lamps ?? [],
     watchmaker: json.watchmaker ?? null,
+    carriages: [],
+    carriageAt: new Int8Array(n).fill(-1),
+    blackouts: json.blackouts ?? [],
     text: rows.join('\n'),
     json,
   };
@@ -228,6 +254,7 @@ export function parseLevel(id: string, text: string, json: LevelJson): Level {
       const i = y * w + x;
       let t = Tile.Floor;
       if (c === '#' || c === ' ') t = Tile.Wall;
+      else if (c === '~') t = Tile.Track;
       else if (c === '-') t = Tile.Window;
       else if (c === '_') t = Tile.Low;
       else if (c === '=') {
@@ -359,6 +386,22 @@ export function parseLevel(id: string, text: string, json: LevelJson): Level {
     const j = json.lasers?.[k] ?? {};
     lv.lasers.push({ x, y, dir: j.dir ?? 'right', period: j.period ?? 0, on: j.on ?? 0, phase: j.phase ?? 0 });
   });
+  (json.carriages ?? []).forEach((cj, k) => {
+    const [x0, y0, x1, y1] = cj.rect;
+    const cw = x1 - x0 + 1;
+    const chh = y1 - y0 + 1;
+    const ct = new Uint8Array(cw * chh);
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const i = y * w + x;
+        ct[(y - y0) * cw + (x - x0)] = tiles[i];
+        tiles[i] = Tile.Track;
+        lv.carriageAt[i] = k;
+      }
+    }
+    lv.carriages.push({ rect: [x0, y0, x1, y1], path: cj.path && cj.path.length ? cj.path : [[0, 0]], w: cw, h: chh, tiles: ct });
+  });
   for (const d of lv.doors) d.wireIdx = d.wires.map((l) => lv.triggers.findIndex((t) => t.letter === l)).filter((g) => g >= 0);
   for (const t of lv.triggers) if (t.type === 'lure' && !t.bell && lv.bells.length) t.bell = lv.bells[0];
   return lv;
@@ -462,24 +505,71 @@ function isBorder(c: string | undefined): boolean {
   return c === '#' || c === '=' || c === '%' || c === '-';
 }
 
-/** Flood fill from a tile with every door open and low walls passable (windows still block). */
+/**
+ * Flood fill from a tile with every door open and low walls passable (windows still block). A
+ * carriage connects to the platforms its openings pass along its whole route.
+ */
 export function reachable(lv: Level, from: Pt): Uint8Array {
-  const seen = new Uint8Array(lv.w * lv.h);
-  const q = [from[1] * lv.w + from[0]];
-  seen[q[0]] = 1;
+  const W = lv.w;
+  const seen = new Uint8Array(W * lv.h);
+  const carSeen = lv.carriages.map((c) => new Uint8Array(c.w * c.h));
+  const open = (t: number) => t !== Tile.Wall && t !== Tile.Window && t !== Tile.Emitter && t !== Tile.Track;
+  const staticOpen = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < lv.h && lv.carriageAt[y * W + x] < 0 && open(lv.tiles[y * W + x]);
+  const q: [number, number, number][] = [[-1, from[0], from[1]]];
+  seen[from[1] * W + from[0]] = 1;
+  const D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   while (q.length) {
-    const i = q.pop()!;
-    const x = i % lv.w;
-    const y = (i - x) / lv.w;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= lv.w || ny >= lv.h) continue;
-      const j = ny * lv.w + nx;
-      const t = lv.tiles[j];
-      if (seen[j] || t === Tile.Wall || t === Tile.Window || t === Tile.Emitter) continue;
-      seen[j] = 1;
-      q.push(j);
+    const [k, x, y] = q.pop()!;
+    if (k < 0) {
+      for (const [dx, dy] of D) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (staticOpen(nx, ny) && !seen[ny * W + nx]) {
+          seen[ny * W + nx] = 1;
+          q.push([-1, nx, ny]);
+        }
+      }
+      // step into a carriage passing by
+      lv.carriages.forEach((c, ck) => {
+        const offs = c.path.map((p) => p[1]);
+        const lo = Math.floor(Math.min(...offs));
+        const hi = Math.ceil(Math.max(...offs));
+        for (const [dx, dy] of D) {
+          const ly = y + dy - c.rect[1];
+          if (ly < 0 || ly >= c.h) continue;
+          for (let o = lo; o <= hi; o++) {
+            const lx = x + dx - c.rect[0] - o;
+            if (lx < 0 || lx >= c.w || !open(c.tiles[ly * c.w + lx]) || carSeen[ck][ly * c.w + lx]) continue;
+            carSeen[ck][ly * c.w + lx] = 1;
+            seen[(c.rect[1] + ly) * W + c.rect[0] + lx] = 1;
+            q.push([ck, lx, ly]);
+          }
+        }
+      });
+    } else {
+      const c = lv.carriages[k];
+      for (const [dx, dy] of D) {
+        const lx = x + dx;
+        const ly = y + dy;
+        if (lx >= 0 && ly >= 0 && lx < c.w && ly < c.h) {
+          if (open(c.tiles[ly * c.w + lx]) && !carSeen[k][ly * c.w + lx]) {
+            carSeen[k][ly * c.w + lx] = 1;
+            seen[(c.rect[1] + ly) * W + c.rect[0] + lx] = 1;
+            q.push([k, lx, ly]);
+          }
+          continue;
+        }
+        // stepping out of the carriage onto a platform, anywhere along the route
+        const offs = c.path.map((p) => p[1]);
+        for (let o = Math.floor(Math.min(...offs)); o <= Math.ceil(Math.max(...offs)); o++) {
+          const mx = c.rect[0] + lx + o;
+          const my = c.rect[1] + ly;
+          if (staticOpen(mx, my) && !seen[my * W + mx]) {
+            seen[my * W + mx] = 1;
+            q.push([-1, mx, my]);
+          }
+        }
+      }
     }
   }
   return seen;

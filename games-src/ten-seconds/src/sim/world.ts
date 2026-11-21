@@ -23,6 +23,7 @@ import { updateCamera, cameraDetect, type CameraState } from './threats/camera';
 import { initHound, updateHound, houndDetect, type HoundState } from './threats/hound';
 import { lampDetect, updateLamps, type LampState } from './threats/lamp';
 import { watchmakerCheck } from './threats/watchmaker';
+import { carriageOffset, moveTrain } from './train';
 
 export type ActorState = 'wait' | 'active' | 'done' | 'paradox';
 
@@ -49,6 +50,8 @@ export interface Actor {
   vaultFy: number;
   vaultTx: number;
   vaultTy: number;
+  /** has stepped off the start tile (bodies only collide once both have; see DESIGN.md) */
+  out: boolean;
   /** recorded positions of this actor in this loop (for the Hound) */
   trailX: Float64Array;
   trailY: Float64Array;
@@ -125,6 +128,7 @@ export type EventKind =
   | 'bell'
   | 'shutter'
   | 'stone'
+  | 'rewound'
   | 'step';
 
 export interface SimEvent {
@@ -179,6 +183,8 @@ export class World {
   stoneTouched = false;
   /** the Watchmaker rewound the room */
   rewound = false;
+  /** each carriage's offset in tiles, now */
+  offs: number[] = [];
 
   constructor(lv: Level) {
     this.lv = lv;
@@ -195,6 +201,7 @@ export class World {
     this.log = [];
     this.stoneTouched = false;
     this.rewound = false;
+    this.offs = lv.carriages.map((c) => carriageOffset(c, 0));
     const sx = lv.start[0] + 0.5;
     const sy = lv.start[1] + 0.5;
     const recs: { rec: Recording; live: boolean }[] = o.lanes.map((rec) => ({ rec, live: false }));
@@ -225,6 +232,7 @@ export class World {
       vaultFy: 0,
       vaultTx: 0,
       vaultTy: 0,
+      out: false,
       trailX: new Float64Array(cap),
       trailY: new Float64Array(cap),
     }));
@@ -254,13 +262,10 @@ export class World {
     this.triggers = lv.triggers.map((t) => ({ pressed: false, on: t.on, until: -1 }));
     this.doorOpen = lv.doors.map(() => false);
     this.lasers = lv.lasers.map(() => ({ on: true, x0: 0, y0: 0, x1: 0, y1: 0, fx: 0, fy: 0, blockedBy: null }));
-    this.guards = [
-      ...lv.guards.map((g, i) => initGuard(this, g, i, false)),
-      ...lv.auditors.map((g, i) => initGuard(this, g, i, true)),
-    ];
     this.cameras = lv.cameras.map((c) => ({ angle: c.from, blindUntil: -1 }));
-    this.hounds = lv.hounds.map((h) => initHound(this, h));
     this.lamps = lv.lamps.map(() => ({ sx: 0, sy: 0 }));
+    this.guards = [];
+    this.hounds = [];
     // settle the world at tick 0 so the first frame already shows correct doors, beams and cones
     for (const a of this.actors) {
       a.trailX[0] = a.x;
@@ -268,6 +273,12 @@ export class World {
     }
     updateTriggers(this, true);
     updateDoors(this, true);
+    // threats plan their first walks with the doors as they really are at tick 0
+    this.guards = [
+      ...lv.guards.map((g, i) => initGuard(this, g, i, false)),
+      ...lv.auditors.map((g, i) => initGuard(this, g, i, true)),
+    ];
+    this.hounds = lv.hounds.map((h) => initHound(this, h));
     updateLasers(this);
     // guards with a warm-up start part-way along their patrol
     for (const g of this.guards) {
@@ -301,9 +312,13 @@ export class World {
       c.px = c.x;
       c.py = c.y;
     }
+    if (this.offs.length) moveTrain(this);
+    const sx0 = this.lv.start[0] + 0.5;
+    const sy0 = this.lv.start[1] + 0.5;
     for (const a of this.actors) {
       if (a.live) stepLive(this, a, input ?? NO_INPUT);
       else stepCopy(this, a);
+      if (!a.out && Math.hypot(a.x - sx0, a.y - sy0) >= 0.8) a.out = true;
       a.trailX[t + 1] = a.x;
       a.trailY[t + 1] = a.y;
     }

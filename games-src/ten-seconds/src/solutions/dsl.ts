@@ -9,6 +9,7 @@
  *   until(s)     stand still until the loop clock reads s seconds
  *   use()        press Use once
  *   face(deg)    turn to face a direction without moving (0 = right, 90 = down)
+ *   inCar(k,x,y) walk straight to tile (x, y) of carriage k as drawn; the target rides the train
  */
 import { COLLIDE_R, HZ, SPEED } from '../sim/constants';
 import { Tile, type Level } from '../sim/level';
@@ -17,6 +18,7 @@ import type { World } from '../sim/world';
 
 export type Step =
   | { kind: 'go'; x: number; y: number; plan: boolean }
+  | { kind: 'car'; k: number; x: number; y: number }
   | { kind: 'wait'; s: number }
   | { kind: 'until'; s: number }
   | { kind: 'use' }
@@ -36,6 +38,8 @@ export const wait = (s: number): Step => ({ kind: 'wait', s });
 export const until = (s: number): Step => ({ kind: 'until', s });
 export const use = (): Step => ({ kind: 'use' });
 export const face = (deg: number): Step => ({ kind: 'face', deg });
+/** walk straight to tile (x, y) of carriage k, as it was drawn (the target moves with the train) */
+export const inCar = (k: number, x: number, y: number): Step => ({ kind: 'car', k, x, y });
 
 const ZERO: LiveInput = { dx: 0, dy: 0, use: false };
 
@@ -68,6 +72,18 @@ export class Bot {
         case 'use':
           this.next();
           return { dx: 0, dy: 0, use: true };
+        case 'car': {
+          const tx = s.x + 0.5 + (w.offs[s.k] ?? 0);
+          const ty = s.y + 0.5;
+          const dx = tx - a.x;
+          const dy = ty - a.y;
+          const d = Math.hypot(dx, dy);
+          if (d >= 1e-3) {
+            const m = Math.min(1, d / SPEED);
+            return { dx: (dx / d) * m, dy: (dy / d) * m, use: false };
+          }
+          break;
+        }
         case 'face':
           this.next();
           return { dx: Math.cos((s.deg * Math.PI) / 180) * 1e-3, dy: Math.sin((s.deg * Math.PI) / 180) * 1e-3, use: false };

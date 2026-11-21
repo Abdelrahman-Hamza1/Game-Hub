@@ -4,7 +4,8 @@
  * start of each loop he walks to where the newest copy ended its loop, waits, then takes his route.
  */
 import { AUDITOR_WAIT, CONE_HALF, CONE_LEN, GUARD_RUN, GUARD_SPEED, GUARD_SWEEP, GUARD_TURN, GUARD_WAIT, HZ, NEAR } from '../constants';
-import type { GuardDef } from '../level';
+import { Tile, type GuardDef } from '../level';
+import { carriageAtPoint, tileAtPoint } from '../train';
 import { endPoint } from '../recording';
 import { findPath, pathDistance } from '../path';
 import { angleDiff, inCone, losClear } from '../vision';
@@ -38,6 +39,14 @@ export interface GuardState {
   hasResume: boolean;
   /** alerted by a noise (shown as a "?" over the guard) */
   alerted: boolean;
+  /** the carriage this guard rides (a conductor), or -1; his route, path and look points are then
+   *  in the carriage's own frame (where it was drawn) */
+  carriage: number;
+}
+
+/** A carriage-frame x to world x (identity for guards on the ground). */
+function wx(w: World, g: GuardState, x: number): number {
+  return g.carriage >= 0 ? x + w.offs[g.carriage] : x;
 }
 
 export function initGuard(w: World, def: GuardDef, index: number, auditor: boolean): GuardState {
@@ -69,14 +78,17 @@ export function initGuard(w: World, def: GuardDef, index: number, auditor: boole
     resumeY: y,
     hasResume: false,
     alerted: false,
+    carriage: w.lv.carriageAt[def.y * w.lv.w + def.x] ?? -1,
   };
   if (def.mode === 'pingpong' && def.route.length > 1 && def.toward === 0) g.dir = -1;
   if (def.start > 0) {
     g.mode = 'pause';
     g.until = Math.round(def.start * HZ);
   }
-  if (auditor && w.newest >= 0) {
-    const a = w.actors[w.newest];
+  // Auditor k remembers the (k+1)-th newest copy: the first the newest, the second the one before…
+  const remembered = auditor ? w.actors.filter((c) => !c.live).sort((p, q) => q.rec.stamp - p.rec.stamp)[index] : undefined;
+  if (auditor && remembered) {
+    const a = remembered;
     const [ex, ey] = endPoint(a.rec, w.lv.start[0] + 0.5, w.lv.start[1] + 0.5);
     const p = findPath(w, x, y, ex, ey);
     if (p) {
@@ -97,6 +109,7 @@ export function initGuard(w: World, def: GuardDef, index: number, auditor: boole
 
 /** A noise at (x, y): go and look if it's within hearing (path distance). */
 export function hearNoise(w: World, g: GuardState, x: number, y: number): void {
+  if (g.carriage >= 0) return conductorHears(w, g, x, y);
   const d = pathDistance(w, g.x, g.y, x, y, w.lv.hearing + 1);
   if (!(d <= w.lv.hearing)) return;
   if (g.mode === 'route' || g.mode === 'pause') {
@@ -123,10 +136,10 @@ export function updateGuard(w: World, g: GuardState): void {
     case 'route': {
       const p = def.route[g.routeI];
       if (!p || def.route.length < 2) {
-        if (p && walk(w, g, p[0] + 0.5, p[1] + 0.5, GUARD_SPEED) && def.face !== null) turnTo(g, def.face);
+        if (p && walk(w, g, wx(w, g, p[0] + 0.5), p[1] + 0.5, GUARD_SPEED) && def.face !== null) turnTo(g, def.face);
         break;
       }
-      if (walk(w, g, p[0] + 0.5, p[1] + 0.5, GUARD_SPEED)) {
+      if (walk(w, g, wx(w, g, p[0] + 0.5), p[1] + 0.5, GUARD_SPEED)) {
         const n = def.route.length;
         if (def.mode === 'loop') g.routeI = (g.routeI + 1) % n;
         else {
@@ -150,21 +163,21 @@ export function updateGuard(w: World, g: GuardState): void {
         startWait(w, g);
         break;
       }
-      if (walk(w, g, q[0], q[1], g.speed)) {
+      if (walk(w, g, wx(w, g, q[0]), q[1], g.speed)) {
         g.pathI++;
         if (g.pathI >= g.path.length) startWait(w, g);
       }
       break;
     }
     case 'wait': {
-      const base = Math.atan2(g.lookY - g.y, g.lookX - g.x);
+      const base = Math.atan2(g.lookY - g.y, wx(w, g, g.lookX) - g.x);
       const want = base + GUARD_SWEEP * Math.sin(((w.t - g.sweepT0) / (2 * HZ)) * Math.PI * 2);
       turnTo(g, want);
       if (w.t >= g.until) {
         g.alerted = false;
         if (g.hasResume) {
           g.mode = 'back';
-          g.path = findPath(w, g.x, g.y, g.resumeX, g.resumeY) ?? [];
+          g.path = g.carriage >= 0 ? [[g.resumeX, g.resumeY]] : findPath(w, g.x, g.y, g.resumeX, g.resumeY) ?? [];
           g.pathI = 0;
         } else g.mode = 'route';
       }
@@ -172,7 +185,7 @@ export function updateGuard(w: World, g: GuardState): void {
     }
     case 'back': {
       const q = g.path[g.pathI];
-      if (!q || walk(w, g, q[0], q[1], GUARD_SPEED)) {
+      if (!q || walk(w, g, wx(w, g, q[0]), q[1], GUARD_SPEED)) {
         if (q) g.pathI++;
         if (!q || g.pathI >= g.path.length) {
           g.mode = 'route';
@@ -189,6 +202,27 @@ function arrivedAt(def: GuardDef, g: GuardState): number {
   const n = def.route.length;
   if (def.mode === 'loop') return (g.routeI - 1 + n) % n;
   return g.routeI - g.dir;
+}
+
+/** A conductor only hears noises in his own carriage; he walks straight to them (carriages are rooms). */
+function conductorHears(w: World, g: GuardState, x: number, y: number): void {
+  if (carriageAtPoint(w, x, y) !== g.carriage) return;
+  const o = w.offs[g.carriage];
+  if (g.mode === 'route' || g.mode === 'pause') {
+    g.resumeX = g.x - o;
+    g.resumeY = g.y;
+    g.hasResume = true;
+  }
+  const d = Math.hypot(x - g.x, y - g.y);
+  const k = d > 1 ? (d - 1) / d : 0;
+  g.mode = 'go';
+  g.path = [[g.x - o + (x - g.x) * k, g.y + (y - g.y) * k]];
+  g.pathI = 0;
+  g.speed = GUARD_RUN;
+  g.waitTicks = GUARD_WAIT;
+  g.lookX = x - o;
+  g.lookY = y;
+  g.alerted = true;
 }
 
 function startWait(w: World, g: GuardState): void {
@@ -216,9 +250,14 @@ function walk(w: World, g: GuardState, tx: number, ty: number, speed: number): b
   const nx = g.x + (dx / d) * s;
   const ny = g.y + (dy / d) * s;
   // a closed door in the way: wait for it
-  const ax = Math.floor(nx + (dx / d) * 0.4);
-  const ay = Math.floor(ny + (dy / d) * 0.4);
-  if (w.doorClosedAt(ax, ay)) return false;
+  if (w.offs.length) {
+    const p = tileAtPoint(w, nx + (dx / d) * 0.4, ny + (dy / d) * 0.4);
+    if (p.t === Tile.Door && !w.doorOpen[w.lv.doorAt[p.my * w.lv.w + p.mx]]) return false;
+  } else {
+    const ax = Math.floor(nx + (dx / d) * 0.4);
+    const ay = Math.floor(ny + (dy / d) * 0.4);
+    if (w.doorClosedAt(ax, ay)) return false;
+  }
   g.x = nx;
   g.y = ny;
   return s >= d - 1e-9;

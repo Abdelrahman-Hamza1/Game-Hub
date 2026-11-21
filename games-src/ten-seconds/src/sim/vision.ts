@@ -4,9 +4,11 @@
  */
 import { CRATE_HALF } from './constants';
 import type { World } from './world';
+import { losClearTrain, rayLengthTrain } from './train';
 
 /** Is the straight line a→b clear? Grid traversal (Amanatides–Woo), then crates. */
 export function losClear(w: World, ax: number, ay: number, bx: number, by: number): boolean {
+  if (w.offs.length) return losClearTrain(w, ax, ay, bx, by);
   let tx = Math.floor(ax);
   let ty = Math.floor(ay);
   const ex = Math.floor(bx);
@@ -39,6 +41,7 @@ export function losClear(w: World, ax: number, ay: number, bx: number, by: numbe
 
 /** Distance along a→b (0..1) to the first opaque tile or crate, for drawing cones. */
 export function rayLength(w: World, ax: number, ay: number, ang: number, max: number): number {
+  if (w.offs.length) return rayLengthTrain(w, ax, ay, ang, max);
   const bx = ax + Math.cos(ang) * max;
   const by = ay + Math.sin(ang) * max;
   let tx = Math.floor(ax);

@@ -3,6 +3,7 @@ import { CARD_RANGE, CRATE_HALF, HZ } from '../constants';
 import type { DoorDef } from '../level';
 import { unstick } from '../actors';
 import { triggerActive } from './triggers';
+import { tileDX } from '../train';
 import type { World } from '../world';
 
 export function doorWanted(w: World, d: DoorDef): boolean {
@@ -22,7 +23,7 @@ export function doorWanted(w: World, d: DoorDef): boolean {
     case 'card':
       open = w.items.some((it) => {
         if (it.kind !== 'card' || it.carrier < 0) return false;
-        return d.tiles.some(([tx, ty]) => Math.hypot(tx + 0.5 - it.x, ty + 0.5 - it.y) <= CARD_RANGE);
+        return d.tiles.some(([tx, ty]) => Math.hypot(tx + 0.5 + (w.offs.length ? tileDX(w, tx, ty) : 0) - it.x, ty + 0.5 - it.y) <= CARD_RANGE);
       });
       break;
     case 'timer':
@@ -56,6 +57,6 @@ export function updateDoors(w: World, init: boolean): void {
 
 function jammed(w: World, d: DoorDef): boolean {
   return w.crates.some((c) =>
-    d.tiles.some(([tx, ty]) => Math.abs(c.x - (tx + 0.5)) < 0.5 + CRATE_HALF - 0.05 && Math.abs(c.y - (ty + 0.5)) < 0.5 + CRATE_HALF - 0.05),
+    d.tiles.some(([tx, ty]) => Math.abs(c.x - (tx + 0.5 + (w.offs.length ? tileDX(w, tx, ty) : 0))) < 0.5 + CRATE_HALF - 0.05 && Math.abs(c.y - (ty + 0.5)) < 0.5 + CRATE_HALF - 0.05),
   );
 }
