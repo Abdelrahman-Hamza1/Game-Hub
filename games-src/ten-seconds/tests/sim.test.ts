@@ -249,10 +249,14 @@ describe('scrub performance', () => {
     const pv = new Preview(lv);
     pv.setPlan(s.lanes, 600);
     for (let i = 0; i < 20; i++) pv.seek(600); // warm up the JIT
-    const n = 50;
-    const t0 = performance.now();
-    for (let i = 0; i < n; i++) pv.seek(600);
-    const ms = (performance.now() - t0) / n;
-    expect(ms).toBeLessThan(4);
+    // the median of several batches, so a busy machine doesn't fail the test
+    const batches: number[] = [];
+    for (let b = 0; b < 7; b++) {
+      const t0 = performance.now();
+      for (let i = 0; i < 10; i++) pv.seek(600);
+      batches.push((performance.now() - t0) / 10);
+    }
+    batches.sort((x, y) => x - y);
+    expect(batches[3]).toBeLessThan(4);
   });
 });

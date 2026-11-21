@@ -40,6 +40,8 @@ export default defineConfig({
   server: { port: 5175 },
   test: {
     include: ['tests/**/*.test.ts'],
+    // tests/tmp/ is scratch space for tuning searches (git-ignored); run it with SCRATCH=1
+    exclude: process.env.SCRATCH ? ['**/node_modules/**'] : ['**/node_modules/**', 'tests/tmp/**'],
     environment: 'node',
   },
 });

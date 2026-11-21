@@ -41,7 +41,7 @@ src/input/input.ts          keyboard, gamepad, touch → movement + actions
 src/ui/                     play screen, menus, title demo
 src/levels/<c>/<nn>.txt     level grids (+ .json settings); finales are f.txt / f.json
 src/solutions/<c>-<nn>.ts   the scripted solution of every level
-tests/                      vitest (tests/tmp/ is git-ignored scratch space)
+tests/                      vitest (tests/tmp/ is git-ignored scratch space: SCRATCH=1 npx vitest run tests/tmp)
 ```
 
 The simulation never touches the DOM. Everything the screen shows or plays comes from the World's
