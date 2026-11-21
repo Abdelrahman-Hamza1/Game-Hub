@@ -129,7 +129,17 @@ export interface FallRecord {
   soft: boolean
   result: 'ground' | 'brutal' | 'firm' | 'gentle' | 'pending'
   unclipped: number
+  /** when the fall started (world time) */
+  t0: number
+  /** how well the belayer caught it: locked before the rope came tight or not */
+  rating: CatchRating
+  /** world time at which the belayer's reaction is judged (-1 until the rope loads) */
+  judgeT: number
+  /** the belayer locked off at some point during the fall */
+  locked: boolean
 }
+
+export type CatchRating = 'pending' | 'perfect' | 'good' | 'late' | 'missed' | 'dropped'
 
 export interface CallEvent {
   id: number

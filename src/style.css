@@ -499,3 +499,48 @@ kbd {
     animation: none;
   }
 }
+
+.belay-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--rule);
+}
+.belay-card .why {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.belay-card .bad {
+  color: var(--red);
+}
+.stars {
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--rope);
+}
+.stars s {
+  text-decoration: none;
+  color: var(--rule);
+}
+.board .stars {
+  font-size: 15px;
+}
+.board small {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.board {
+  margin-top: 12px;
+}
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 7px;
+}

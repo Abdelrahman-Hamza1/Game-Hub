@@ -63,6 +63,8 @@ export class Renderer {
   camX = 1
   camY = 4
   scale = 70
+  private shake = 0
+  private lastNow = 0
   private rock: CanvasPattern
   private grass: CanvasPattern
 
@@ -106,9 +108,21 @@ export class Renderer {
     this.camY += (ty - this.camY) * k
   }
 
+  /** shake the camera, in pixels; big catches and ground falls thump */
+  kick(px: number): void {
+    this.shake = Math.max(this.shake, px)
+  }
+
   render(v: RenderView): void {
     const c = this.c
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    const dt = Math.min(0.1, Math.max(0, v.now - this.lastNow))
+    this.lastNow = v.now
+    this.shake = Math.max(0, this.shake - dt * 40)
+    if (this.shake > 0.3) {
+      const a = this.shake
+      c.translate((Math.random() - 0.5) * a, (Math.random() - 0.5) * a)
+    }
     this.drawBackdrop(v.route)
     this.drawCliff(v.route)
     this.drawGround()
@@ -118,8 +132,11 @@ export class Renderer {
     this.drawRope(v)
     this.drawBelayer(v)
     this.drawClimber(v)
+    this.drawDust(v)
     if (!v.hud) return
+    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     this.drawCursor(v)
+    this.drawShouts(v)
     this.drawCalls(v)
     this.drawHud(v)
     this.drawToasts(v)
@@ -585,11 +602,15 @@ export class Renderer {
   private drawClimber(v: RenderView): void {
     const sn = v.snap.c
     const shake: [boolean, boolean] = [sn.pop[0] > 0 || sn.pump[0] > 88, sn.pop[1] > 0 || sn.pump[1] > 88]
+    // free limbs windmill while falling
+    const flail = v.snap.fall ? 1 : 0
+    const wob = (l: [number, number, number, number], i: number, amp: number): [number, number] =>
+      flail && l[2] === 0 ? [l[0] + Math.sin(v.now * 17 + i * 2.1) * amp, l[1] + Math.cos(v.now * 13 + i * 1.7) * amp] : [l[0], l[1]]
     this.drawPerson(
       sn.chest,
       sn.pelvis,
-      sn.hands.map((h) => [h[0], h[1]] as [number, number]),
-      sn.feet.map((f) => [f[0], f[1]] as [number, number]),
+      sn.hands.map((h, i) => wob(h, i, 0.12)),
+      sn.feet.map((f, i) => wob(f, i + 2, 0.08)),
       v.leader.color,
       shake,
       v.now,
@@ -603,10 +624,11 @@ export class Renderer {
     const lifted = b.y > 1.0
     const pel: [number, number] = [b.x, b.y]
     const chest: [number, number] = [b.x - 0.05, b.y + 0.5]
+    const kickT = v.now * 14
     const feet: [number, number][] = lifted
       ? [
-          [b.x - 0.1, b.y - 0.8],
-          [b.x + 0.15, b.y - 0.75],
+          [b.x - 0.1 + Math.sin(kickT) * 0.12, b.y - 0.8 + Math.cos(kickT) * 0.05],
+          [b.x + 0.15 - Math.sin(kickT + 1) * 0.12, b.y - 0.75],
         ]
       : [
           [b.x - 0.2, 0],
@@ -623,6 +645,68 @@ export class Renderer {
     c.roundRect(this.sx(dev[0]) - 5, this.sy(dev[1]) - 6, 10, 12, 2)
     c.fill()
     if (v.hud) this.nameTag(b.x, b.y + 1.0, v.belayer ? v.belayer.name : 'Bot belayer', color)
+  }
+
+  /** a puff of dust where the leader landed */
+  private drawDust(v: RenderView): void {
+    const t = v.snap.ouch
+    if (t < 0 || t > 0.9) return
+    const c = this.c
+    const x = v.snap.c.pelvis[0]
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI
+      const r = (0.25 + t * 1.3) * (0.7 + ((i * 37) % 10) / 20)
+      c.globalAlpha = Math.max(0, 0.55 * (1 - t / 0.9))
+      c.fillStyle = '#C8B89A'
+      c.beginPath()
+      c.arc(this.sx(x + Math.cos(a) * r), this.sy(0.05 + Math.sin(a) * r * 0.35), (0.1 + t * 0.25) * this.scale, 0, Math.PI * 2)
+      c.fill()
+    }
+    c.globalAlpha = 1
+  }
+
+  /** a speech bubble in world space */
+  private bubble(wx: number, wy: number, text: string, color: string, alpha = 1, size = 14): void {
+    const c = this.c
+    const x = this.sx(wx), y = this.sy(wy)
+    c.globalAlpha = alpha
+    c.font = `700 ${size}px ${MONO}`
+    const w = c.measureText(text).width + 16
+    c.fillStyle = '#fff'
+    c.strokeStyle = INK
+    c.lineWidth = 1.5
+    c.beginPath()
+    c.roundRect(x, y - size - 4, w, size + 10, 4)
+    c.fill()
+    c.stroke()
+    c.fillStyle = color
+    c.fillText(text, x + 8, y - 1)
+    c.globalAlpha = 1
+  }
+
+  /** involuntary noises: screams on the way down, the belayer getting yanked, the landing */
+  private drawShouts(v: RenderView): void {
+    const sn = v.snap
+    const pick = (list: string[], seed: number) => list[Math.abs(Math.floor(seed * 7.3)) % list.length]
+    if (sn.fall && sn.t - sn.fall.t0 > 0.12) {
+      const txt = pick(['AAAAH!', 'NOOOO!', 'WHOAAA!', 'TAKE TAKE TAKE!', 'MUMMY!', 'CATCH ME!', 'I TRUSTED YOU!'], sn.fall.t0)
+      const jit = Math.sin(v.now * 40) * 0.02
+      this.bubble(sn.c.chest[0] + 0.3 + jit, sn.c.chest[1] + 0.55, txt, '#D62839', 1, 16)
+    }
+    if (sn.b.y > 1.15) this.bubble(sn.b.x + 0.3, sn.b.y + 1.15, pick(['WHOA!', 'HNNNG!', 'UP I GO!', 'OOF!'], Math.floor(sn.t / 4)), '#0E8F9B')
+    if (sn.ouch >= 0 && sn.ouch < 1.4 && sn.lastFall) {
+      const txt = pick(['OOF.', 'OUCH.', 'MY ANKLES.', 'I\'M FINE. I\'M FINE.', 'ROCK, HELLO.'], sn.lastFall.t0)
+      this.bubble(sn.c.pelvis[0] + 0.3, sn.c.pelvis[1] + 0.9, txt, INK, Math.min(1, 1.4 - sn.ouch + 0.3))
+    }
+    if (sn.lastFall && !sn.fall && sn.ouch < 0 && sn.lastFall.rating !== 'pending') {
+      // the belayer's reaction to their own catch, for a moment after it
+      const age = sn.t - (sn.lastFall.t0 + 1.2)
+      if (age > 0 && age < 1.6) {
+        const r = sn.lastFall.rating
+        const txt = r === 'perfect' ? 'Got you.' : r === 'good' ? 'Got you!' : r === 'late' ? 'Sorry!!' : 'Oops.'
+        this.bubble(sn.b.x + 0.3, sn.b.y + 1.15, txt, '#0E8F9B', Math.min(1, 1.6 - age))
+      }
+    }
   }
 
   private drawSpectators(v: RenderView): void {
@@ -806,6 +890,7 @@ export class Renderer {
     else if (snap.topped || (lastCall && lastCall.id === 8)) prompt = 'Lower: hold ↓ to pay out'
     else if (snap.hanging) prompt = 'Resting on the rope: hold them'
     else if (snap.slack < 0.15 && snap.high > 2) prompt = 'Tight! Feed ↓ or you short-rope'
+    else if (snap.slack > 1.8 && sn.pelvis[1] < 6 && sn.pelvis[1] > 2 && !snap.topped) prompt = 'Too much slack! Pull in ↑'
     if (prompt && (v.localBelayer || !v.belayer)) {
       c.fillStyle = snap.fall ? '#FF8A95' : '#FFB27A'
       c.fillText(prompt, bx + 12, by + 82)

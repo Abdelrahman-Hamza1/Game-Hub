@@ -3,9 +3,10 @@
 // Lobby as data and send commands back.
 
 import { CRAG } from '../sim/routes'
+import { GRADES } from '../sim/constants'
 import type { InputFrame, Route } from '../sim/types'
 import { emptyInput } from '../sim/types'
-import { createWorld, endAttempt, requestLower, snapshot, stepWorld, type Snap, type World } from '../sim/world'
+import { belayScore, createWorld, endAttempt, requestLower, snapshot, stepWorld, type BelayStats, type Snap, type World } from '../sim/world'
 
 export type Mode = 'solo' | 'local' | 'online'
 export type Phase = 'crag' | 'climb' | 'summary'
@@ -36,6 +37,19 @@ export interface Summary {
   reason: 'ground' | 'lowered' | 'gaveup'
   energyCost: number
   date: string
+  /** how the human belayer did; null when the bot belayed */
+  belay: (BelayStats & { score: number; stars: number; name: string }) | null
+}
+
+export interface HistoryEntry {
+  routeId: string
+  leader: string
+  sent: boolean
+  belayer?: string
+  grade?: string
+  style?: Style | null
+  /** belay stars, -1 for the bot */
+  stars?: number
 }
 
 export interface Lobby {
@@ -51,7 +65,7 @@ export interface Lobby {
   /** player id or 'bot' */
   belayer: string | null
   summary: Summary | null
-  history: { routeId: string; leader: string; sent: boolean }[]
+  history: HistoryEntry[]
   autoFeet: boolean
   day: number
   dayOver: boolean
@@ -244,7 +258,18 @@ export class Session {
       L.energy = Math.max(0, L.energy - cost)
       if (!L.tried.includes(route.id)) L.tried.push(route.id)
     }
-    this.lobby.history.push({ routeId: route.id, leader: this.lobby.leader!, sent: end.sent })
+    const B = this.lobby.players.find((p) => p.id === this.lobby.belayer)
+    // a belay only counts once the leader is properly off the ground
+    const belay = B && end.highPoint > 2.5 ? { ...w.belay, looseT: Math.round(w.belay.looseT * 10) / 10, ...belayScore(w.belay), name: B.name } : null
+    this.lobby.history.push({
+      routeId: route.id,
+      leader: this.lobby.leader!,
+      sent: end.sent,
+      belayer: this.lobby.belayer!,
+      grade: route.grade,
+      style,
+      stars: belay ? belay.stars : -1,
+    })
     this.lobby.summary = {
       routeId: route.id,
       routeName: route.name,
@@ -260,6 +285,7 @@ export class Session {
       reason: end.reason,
       energyCost: cost,
       date: new Date().toISOString().slice(0, 10),
+      belay,
     }
     this.lobby.phase = 'summary'
     this.lobby.dayOver = this.lobby.players.every((p) => p.energy < 15)
@@ -273,4 +299,33 @@ export class Session {
   get route(): Route | null {
     return findRoute(this.lobby, this.lobby.routeId)
   }
+}
+
+export interface CrewRow {
+  id: string
+  name: string
+  color: number
+  sends: number
+  best: string | null
+  stars: number
+  belays: number
+}
+
+/** The day's scoreboard: sends and best grade as leader, stars as belayer. */
+export function crewBoard(lobby: Pick<Lobby, 'players' | 'history'>): CrewRow[] {
+  return lobby.players.map((p) => {
+    const led = lobby.history.filter((h) => h.leader === p.id)
+    const sent = led.filter((h) => h.sent && h.grade)
+    const best = sent.reduce<string | null>((b, h) => (b === null || GRADES.indexOf(h.grade!) > GRADES.indexOf(b) ? h.grade! : b), null)
+    const belayed = lobby.history.filter((h) => h.belayer === p.id && (h.stars ?? -1) >= 0)
+    return {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      sends: sent.length,
+      best,
+      stars: belayed.reduce((a, h) => a + (h.stars ?? 0), 0),
+      belays: belayed.length,
+    }
+  })
 }

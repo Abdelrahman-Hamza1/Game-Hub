@@ -4,7 +4,7 @@
 import { BODY, CALL_BY_ID, DEVICE, G } from './constants'
 import { controlClimber, createClimber, grips, onGround, settleFreeLimbs, substepClimber } from './climber'
 import { clipDraw, createRope, DEVICE as DEV, HARNESS, ropeOut, stepRope, totalSlack, unclipDraw } from './rope'
-import type { Belayer, CallEvent, Climber, Draw, FallRecord, InputFrame, RopeState, Route } from './types'
+import type { Belayer, CallEvent, CatchRating, Climber, Draw, FallRecord, InputFrame, RopeState, Route } from './types'
 import { emptyInput } from './types'
 
 export const SUBSTEPS = 8
@@ -20,6 +20,39 @@ export interface GameEvent {
   type: string
   text?: string
   t: number
+}
+
+/** How the belayer did on one attempt. Plain JSON: it goes into the summary. */
+export interface BelayStats {
+  catches: number
+  perfect: number
+  late: number
+  missed: number
+  /** ground falls with the rope clipped: the belayer let them deck */
+  dropped: number
+  shortRopes: number
+  /** seconds with a big loop of slack while the leader was low */
+  looseT: number
+}
+
+export function emptyBelayStats(): BelayStats {
+  return { catches: 0, perfect: 0, late: 0, missed: 0, dropped: 0, shortRopes: 0, looseT: 0 }
+}
+
+/** 0–100 and 0–3 stars. A tidy belay with no falls is worth three stars. */
+export function belayScore(s: BelayStats): { score: number; stars: number } {
+  const raw = 85 + 5 * s.perfect - 20 * s.late - 30 * s.missed - 60 * s.dropped - 12 * s.shortRopes - Math.min(30, 4 * s.looseT)
+  const score = Math.max(0, Math.min(100, Math.round(raw)))
+  return { score, stars: score >= 85 ? 3 : score >= 65 ? 2 : score >= 40 ? 1 : 0 }
+}
+
+export const RATING_LABEL: Record<CatchRating, string> = {
+  pending: 'Catch',
+  perfect: 'Perfect catch',
+  good: 'Good catch',
+  late: 'Late catch',
+  missed: 'Missed catch',
+  dropped: 'Dropped',
 }
 
 export interface AttemptEnd {
@@ -61,6 +94,9 @@ export interface World {
   letGo: boolean
   /** hanging on the rope after a fall, until a hand grips again */
   hanging: boolean
+  belay: BelayStats
+  /** world time the leader hit the ground (-1 if they haven't) */
+  ouchT: number
 }
 
 interface BotState {
@@ -124,6 +160,8 @@ export function createWorld(route: Route, opt: WorldOptions): World {
     lowerRequested: false,
     letGo: false,
     hanging: false,
+    belay: emptyBelayStats(),
+    ouchT: -1,
   }
   w.rope = createRope(devicePos(belayer), [climber.pelvis.x, climber.pelvis.y], 1.0)
   return w
@@ -382,6 +420,7 @@ function updateClip(w: World, inp: InputFrame, dt: number): void {
   if (w.Tharness > 450 && clip.demand > 0) {
     c.clip = null
     c.pump[1 - clip.hand] = Math.min(100, c.pump[1 - clip.hand] + 12)
+    w.belay.shortRopes++
     emit(w, 'clipfail', 'Short-roped! Ask for slack')
     return
   }
@@ -436,6 +475,10 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
       soft: false,
       result: 'pending',
       unclipped: 0,
+      t0: w.t,
+      rating: 'pending',
+      judgeT: -1,
+      locked: false,
     }
     w.weighted = true
     w.fallStillT = 0
@@ -446,6 +489,10 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
     f.lowY = Math.min(f.lowY, c.pelvis.y)
     f.peak = Math.max(f.peak, Tmax)
     if (w.belayer.soft && w.belayer.mode === 'lock') f.soft = true
+    if (w.belayer.mode === 'lock') f.locked = true
+    // the belayer is judged when the rope comes tight, with a moment's grace on a tight rope
+    if (f.judgeT < 0 && w.rope.T[0] > 350) f.judgeT = Math.max(w.t, f.t0 + 0.3)
+    if (f.rating === 'pending' && f.judgeT >= 0 && w.t >= f.judgeT) f.rating = w.belayer.mode === 'lock' ? 'good' : 'late'
     // a back-clipped draw can unclip itself under load
     if (Tmax > 2000) {
       for (let i = 0; i < w.draws.length; i++) {
@@ -463,10 +510,15 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
     const vy = (c.pelvis.y - c.pelvis.py) * SUBSTEPS / dt
     if (c.pelvis.y < 0.75 && vy < -2.5) {
       f.result = 'ground'
+      // decking with a clip above is on the belayer; below the first bolt it's the leader's call
+      f.rating = f.C > 0.5 ? 'dropped' : 'missed'
+      if (f.C > 0.5) w.belay.dropped++
       w.falls.push(f)
       w.fall = null
       emit(w, 'ground', 'Ground fall!')
-      endAttempt(w, 'ground')
+      // let the landing play out before the attempt ends
+      w.ouchT = w.t
+      w.letGo = true
       return
     }
     const speed = Math.hypot(c.pelvis.x - c.pelvis.px, c.pelvis.y - c.pelvis.py) * SUBSTEPS / dt
@@ -481,8 +533,15 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
       w.falls.push(f)
       w.fall = null
       w.hanging = g === 0
-      const label = f.result === 'brutal' ? 'Brutal catch' : f.result === 'firm' ? 'Firm catch' : 'Gentle catch'
-      emit(w, 'catch', `${label} · ${kN.toFixed(1)} kN · dropped ${(f.startY - f.lowY).toFixed(1)} m`)
+      if (f.rating === 'pending') f.rating = f.locked ? 'good' : 'missed'
+      if (f.rating === 'late' && !f.locked) f.rating = 'missed'
+      if (f.rating === 'good' && f.soft && kN < 4) f.rating = 'perfect'
+      w.belay.catches++
+      if (f.rating === 'perfect') w.belay.perfect++
+      if (f.rating === 'late') w.belay.late++
+      if (f.rating === 'missed') w.belay.missed++
+      const feel = f.result === 'brutal' ? 'brutal' : f.result === 'firm' ? 'firm' : 'gentle'
+      emit(w, 'catch', `${RATING_LABEL[f.rating]} · ${feel} ${kN.toFixed(1)} kN · dropped ${(f.startY - f.lowY).toFixed(1)} m`)
     }
   }
   // resting on the rope counts as weighting it
@@ -491,6 +550,8 @@ function trackFalls(w: World, Tmax: number, dt: number): void {
     w.weightT += dt
     if (w.weightT > 0.3) w.weighted = true
   } else w.weightT = 0
+  // a big loop of slack low on the route is how ground falls happen
+  if (!w.fall && !w.topped && !w.lowerRequested && !w.hanging && !c.clip && w.leftGround && c.pelvis.y < 6 && w.slack > 1.8) w.belay.looseT += dt
   void pf
 }
 
@@ -498,6 +559,10 @@ function checkEnd(w: World, dt: number): void {
   const c = w.climber
   void dt
   if (w.end) return
+  if (w.ouchT >= 0) {
+    if (w.t - w.ouchT > 1.4) endAttempt(w, 'ground')
+    return
+  }
   // back on the ground after leaving it: lowered or down-climbed
   if ((w.leftGround || w.lowerRequested) && !w.fall && grips(c) === 0 && c.pelvis.y < 1.05) {
     c.feet[0] = { x: c.pelvis.x - 0.16, y: 0, hold: -2, state: 1 }
@@ -609,6 +674,8 @@ export interface Snap {
   calls: CallEvent[]
   events: GameEvent[]
   end: AttemptEnd | null
+  /** seconds since the leader hit the ground, or -1 */
+  ouch: number
 }
 
 export function snapshot(w: World): Snap {
@@ -659,6 +726,7 @@ export function snapshot(w: World): Snap {
     calls: w.calls.filter((k) => w.t - k.t < 4),
     events: w.events.filter((e) => w.t - e.t < 3),
     end: w.end,
+    ouch: w.ouchT >= 0 ? r2(w.t - w.ouchT) : -1,
   }
 }
 

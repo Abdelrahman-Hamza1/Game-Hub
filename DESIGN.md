@@ -5,7 +5,7 @@ A co-op climbing game for people who actually climb. Every player controls their
 - **Players:** 2–4 online (2 on one computer for development and couch play)
 - **Platforms:** desktop browser with keyboard + mouse first; phone browser as the last step of v1
 - **View:** 2D, side-on. The wall is the screen.
-- **Stack:** TypeScript, Vite, PixiJS (rendering), Rapier 2D (physics), Trystero (peer-to-peer rooms)
+- **Stack:** TypeScript, Vite, Canvas 2D (rendering), hand-written physics (no engine), Trystero (peer-to-peer rooms)
 - **Hosting:** GitHub Pages only. No server, no domain.
 
 ---
@@ -114,6 +114,7 @@ The belayer has the most important controls in the game. Good belaying should fe
 
 - **Device:** v1 uses a tube device (the belayer must catch actively). Assisted-braking devices are in Later.
 - **Weight:** a lighter belayer is lifted further on a big fall; a heavier one gives a harder catch.
+- **Belay stars:** every catch is rated by when the belayer locked off: before the rope came tight is good, with a soft catch and a gentle force it's perfect, after is late, never is missed. Short-ropes, a big loop of slack near the ground and dropping the leader cost stars. Each attempt gives the belayer 0–3 stars, and the day board shows sends, best grade and belay stars for the whole crew, so the belayer has their own game.
 
 ---
 
@@ -258,14 +259,14 @@ Grade conversions used in the UI (approximate):
 ## 11. Technical architecture
 
 ### 11.1 Climber
-- 2D ragdoll in Rapier 2D: pelvis, torso, head, upper and lower arms and legs.
-- A grab creates a joint between the hand and the hold; its max force scales with remaining grip.
-- Body position (hips in or out, arm straightness, feet on) is measured from the ragdoll and feeds the pump multiplier.
+- Two physics points (chest and pelvis) joined by the torso, stepped with position-based dynamics at 8 substeps per frame.
+- A gripping hand is a max-distance constraint to its hold; feet can only push. Arms and legs are drawn with IK.
+- Muscles pull the body toward a pose (straight arms at rest, a lock-off while reaching). Body position (hips in, feet on) feeds the pump multiplier.
 
 ### 11.2 Rope
-- Position-based rope in 2D: fixed segment length, 10–20 constraint iterations per step.
-- Clipped quickdraws are pulley constraints: rope particles slide through with friction, and rope length redistributes between sections.
-- Belay device = payout constraint controlled by belayer input.
+- The rope is a chain of elastic sections between anchors (device, each clipped draw, harness), not particles.
+- Each draw is a pulley with capstan friction; rope length moves between sections when the tension difference beats the friction.
+- The belay device slips above a hold force set by the belayer's input (idle, feeding, locked, soft catch).
 - Peak tension during a catch is the catch force.
 
 ### 11.3 Multiplayer
@@ -285,7 +286,7 @@ Grade conversions used in the UI (approximate):
 /src
   /input     action layer: keyboard + mouse now, touch later
   /sim       physics step, climber, rope, fall model, pump (pure logic, runs on the host)
-  /render    PixiJS drawing, camera, HUD
+  /render    Canvas 2D drawing, camera, HUD
   /net       Trystero rooms, snapshots, input messages
   /ui        menus, logbook, call wheel
 /content     walls and routes (JSON)

@@ -1,6 +1,6 @@
 import './style.css'
 import { sayCall, setAudio, sfx, unlockAudio } from './audio'
-import { BOT, findRoute, Session, type Lobby, type Summary } from './game/session'
+import { BOT, crewBoard, findRoute, Session, type Lobby, type Summary } from './game/session'
 import { decodeRoute, routeLink, baseUrl } from './game/share'
 import {
   addLog,
@@ -414,7 +414,10 @@ class App {
       this.seenEvent = e.id
       if (snap.t - e.t > 1) continue
       sfx(e.type)
-      if (e.type === 'catch' && e.text) this.toast(e.text, e.text.startsWith('Brutal') ? 'bad' : 'info')
+      if (e.type === 'catch') this.renderer.kick(Math.min(14, (snap.lastFall?.peak ?? 2000) / 450))
+      if (e.type === 'ground') this.renderer.kick(18)
+      if (e.type === 'catch' && e.text)
+        this.toast(e.text, /^(Late|Missed)|brutal/.test(e.text) ? 'bad' : e.text.startsWith('Perfect') ? 'good' : 'info')
       else if (e.type === 'top' && e.text) this.toast(e.text, 'good')
       else if ((e.type === 'pop' || e.type === 'clipfail' || e.type === 'ground' || e.type === 'unclip') && e.text) this.toast(e.text, 'bad')
       else if (e.type === 'clip' && e.text) this.toast(e.text, e.text.startsWith('Back') ? 'bad' : 'good')
@@ -641,13 +644,27 @@ class App {
         <div><span>Style</span><b>${s.style ?? (s.topped ? 'Topped' : '—')}</b></div>
         <div><span>Energy used</span><b>${s.energyCost}%</b></div>
       </div>
-      ${l.dayOver ? '<p class="note">Everyone is out of energy. That was a good day at the crag.</p>' : ''}
+      ${s.belay ? belayHtml(s.belay) : ''}
+      ${this.boardHtml(l)}
+      ${l.dayOver ? `<p class="note">Everyone is out of energy. That was a good day at the crag.${dayMvp(l)}</p>` : ''}
       <div class="row">
         ${l.dayOver ? `<button class="btn primary" data-act="newday" ${isPlayer ? '' : 'disabled'}>Start a new day</button>` : `<button class="btn primary" data-act="again" ${isPlayer ? '' : 'disabled'}>Next go: ${esc(nextName)} leads</button>`}
         <button class="btn" data-act="back">Pick another route</button>
         <button class="btn" data-act="copy-route-summary">Copy route link</button>
       </div>
     </div></div>`
+  }
+
+  /** the crew's day so far, once there is a crew */
+  boardHtml(l: Lobby): string {
+    if (l.players.length < 2 || !l.history.length) return ''
+    const rows = crewBoard(l)
+      .map(
+        (r) => `<tr><td><i class="dot" style="background:${PALETTE[r.color % PALETTE.length].shirt}"></i>${esc(r.name)}</td>
+          <td>${r.sends}</td><td>${r.best ? esc(this.grade(r.best)) : '—'}</td><td>${r.belays ? `${stars(Math.round(r.stars / r.belays))} <small>${r.stars}★ / ${r.belays}</small>` : '—'}</td></tr>`,
+      )
+      .join('')
+    return `<table class="board"><thead><tr><th>Day ${l.day}</th><th>Sends</th><th>Best</th><th>Belaying</th></tr></thead><tbody>${rows}</tbody></table>`
   }
 
   modalHtml(): string {
@@ -904,6 +921,30 @@ function guessRoles(l: Lobby): { leader: string; belayer: string } {
   return { leader: leader.id, belayer: belayer.id }
 }
 
+function stars(n: number): string {
+  return `<span class="stars">${'★'.repeat(n)}<s>${'★'.repeat(3 - n)}</s></span>`
+}
+
+function belayHtml(b: NonNullable<Summary['belay']>): string {
+  const bits: string[] = []
+  if (b.catches) bits.push(`${b.catches} catch${b.catches > 1 ? 'es' : ''}${b.perfect ? ` (${b.perfect} perfect)` : ''}`)
+  if (b.late) bits.push(`${b.late} late`)
+  if (b.missed) bits.push(`${b.missed} missed`)
+  if (b.dropped) bits.push(`<b class="bad">dropped them</b>`)
+  if (b.shortRopes) bits.push(`${b.shortRopes} short-rope${b.shortRopes > 1 ? 's' : ''}`)
+  if (b.looseT >= 1) bits.push(`${b.looseT.toFixed(0)} s of loose rope`)
+  if (!bits.length) bits.push('tidy rope, nothing to catch')
+  return `<div class="belay-card"><span class="kicker">Belay · ${esc(b.name)}</span>${stars(b.stars)}<span class="why">${bits.join(' · ')}</span></div>`
+}
+
+/** at the end of the day, name the best belayer */
+function dayMvp(l: Lobby): string {
+  const best = crewBoard(l)
+    .filter((r) => r.belays > 0)
+    .sort((a, b) => b.stars - a.stars)[0]
+  return best && best.stars > 0 ? ` Belayer of the day: <b>${esc(best.name)}</b> (${best.stars}★).` : ''
+}
+
 function headline(s: Summary): string {
   if (s.sent && s.style) return `Sent! <span>${s.style}</span>`
   if (s.reason === 'ground') return 'Ground <span>fall</span>'
@@ -947,6 +988,7 @@ function helpHtml(): string {
     </table>
     <p class="note"><b>Calls:</b> ${calls}</p>
     <p class="note"><b>Tips.</b> Feet first: step up with Q/E, then reach. Rest on jugs with your feet on. Ask for slack before you clip ("Clipping!") or you'll short-rope yourself. "Falling!" gives your belayer a bigger catch window. A send means reaching the top anchor with no falls and no rests on the rope.</p>
+    <p class="note"><b>Belay stars.</b> Lock off before the rope comes tight and the catch counts; do it with Shift for a <i>perfect</i> one. Short-roping your leader, a big loop of slack near the ground, or a late catch cost stars. Dropping someone to the ground costs the lot.</p>
     <p class="note">On one computer the mouse climbs and the arrow keys belay. <kbd>G</kbd> shows the fall readout.</p>
   </div></div>`
 }

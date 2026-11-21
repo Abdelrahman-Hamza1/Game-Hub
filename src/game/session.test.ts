@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CRAG } from '../sim/routes'
 import { endAttempt } from '../sim/world'
-import { BOT, Session } from './session'
+import { BOT, crewBoard, Session } from './session'
 
 function crew(n: number): Session {
   const s = new Session('online', 'a')
@@ -104,5 +104,29 @@ describe('session', () => {
     const s = crew(2)
     s.lobby.players[1].energy = 5
     expect(s.nextRoles()).toEqual({ leader: 'a', belayer: 'b' })
+  })
+
+  it('scores the belayer and builds the day board', () => {
+    const s = crew(2)
+    s.start(CRAG[2].id, 'a', 'b')
+    s.world!.belay.shortRopes = 2
+    s.world!.highPoint = 8
+    finish(s, true)
+    expect(s.lobby.summary?.belay?.name).toBe('Omar')
+    expect(s.lobby.summary?.belay?.stars).toBe(1)
+    s.start(CRAG[0].id, 'b', 'a')
+    s.world!.highPoint = 8
+    finish(s, true)
+    const board = crewBoard(s.lobby)
+    expect(board.find((r) => r.id === 'a')).toMatchObject({ sends: 1, best: '5c', stars: 3, belays: 1 })
+    expect(board.find((r) => r.id === 'b')).toMatchObject({ sends: 1, best: '5a', stars: 1 })
+  })
+
+  it('the bot belayer gets no score', () => {
+    const s = new Session('solo', 'a')
+    s.addPlayer({ id: 'a', name: 'A', mass: 70, tried: [] })
+    s.start(CRAG[0].id)
+    finish(s, false)
+    expect(s.lobby.summary?.belay).toBeNull()
   })
 })

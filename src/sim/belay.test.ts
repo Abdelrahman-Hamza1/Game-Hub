@@ -46,7 +46,7 @@ function run(react: number | null, soft: boolean) {
     stepWorld(w, 1 / 60, emptyInput(), b)
   }
   const f = w.falls[0]
-  return { drop: start - f.lowY, kN: f.peak / 1000, result: f.result, end: w.end?.reason }
+  return { drop: start - f.lowY, kN: f.peak / 1000, result: f.result, rating: f.rating, end: w.end?.reason, stats: w.belay }
 }
 
 describe('human belayer', () => {
@@ -62,5 +62,13 @@ describe('human belayer', () => {
     expect(soft.kN).toBeLessThan(early.kN)
     expect(soft.drop).toBeGreaterThan(early.drop)
     expect(late.drop).toBeGreaterThan(early.drop)
+  })
+
+  it('rates the catch by when the belayer locked off', () => {
+    expect(run(0.1, false).rating).toBe('good')
+    expect(run(0.45, true).rating).toBe('perfect')
+    expect(run(1.15, false).rating).toBe('late')
+    expect(run(null, false).rating).toBe('missed')
+    expect(run(1.15, false).stats.late).toBe(1)
   })
 })
