@@ -2,6 +2,7 @@
 # Add a line here for each new game in games-src/.
 /games/echo/
 /games/short-rope/
+/games/ten-seconds/
 
 node_modules/
 _site/

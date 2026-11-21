@@ -1,0 +1,9 @@
+{
+  "name": "Patrol",
+  "par": 2,
+  "swiftTime": 8.0,
+  "hint": "Watch which way the guard is facing. Cross behind his back.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } },
+  "guards": [{ "route": [[16, 1], [16, 9]], "mode": "pingpong", "toward": 0, "warmup": 0.7 }]
+}

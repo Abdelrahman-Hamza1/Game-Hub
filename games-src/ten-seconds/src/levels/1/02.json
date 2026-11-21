@@ -1,0 +1,8 @@
+{
+  "name": "Two Locks",
+  "par": 3,
+  "swiftTime": 6.5,
+  "hint": "Two plates, two doors. One of you on each, then one more to run.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "B": { "rule": "plate", "wires": ["b"] } },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" } }
+}

@@ -44,6 +44,27 @@
     "howTo": "Climb one limb at a time: hold the left or right mouse button, drag a hand to a hold, let go to grab. Q and E step your feet up.\nClip each quickdraw with F, and call \"Clipping!\" first so your belayer gives slack.\nBelaying: hold ↓ to feed slack, ↑ to take in, Enter to catch a fall.\nSolo, a bot belays you. On one computer, the mouse climbs and the arrow keys belay. In a room, up to 4 friends take turns."
   },
   {
+    "id": "ten-seconds",
+    "title": "Ten Seconds",
+    "blurb": "A solo time-loop heist. Every ten seconds you rewind, and the you from before stays to help.",
+    "players": [
+      1,
+      1
+    ],
+    "modes": [
+      "solo"
+    ],
+    "color": "gold",
+    "pattern": "grid",
+    "tags": [
+      "puzzle",
+      "stealth",
+      "time loop"
+    ],
+    "added": "2026-11-21",
+    "howTo": "Move with WASD or the arrows, E to use. The clock starts when you move.\nWhen ten seconds run out you rewind, and the you from that loop stays as a copy that repeats it exactly.\nHold a door, ring a bell, run for the gem: one copy per job. R retries the loop, Z deletes the last copy, 1–6 re-records a copy."
+  },
+  {
     "id": "_template",
     "title": "Tap Test",
     "blurb": "The starter template. Tap fast alone, or tap together in a room to check connections.",

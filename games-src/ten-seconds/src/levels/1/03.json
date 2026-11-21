@@ -1,0 +1,8 @@
+{
+  "name": "Let Go",
+  "par": 2,
+  "swiftTime": 7.0,
+  "hint": "Holding on is easy. Letting go at the right time is the job.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "B": { "rule": "inverted", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Doorstop",
+  "par": 2,
+  "swiftTime": 7.0,
+  "hint": "The door only stays open while someone stands on the plate.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } }
+}

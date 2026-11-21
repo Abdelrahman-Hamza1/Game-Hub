@@ -1,0 +1,10 @@
+{
+  "name": "Ring Once",
+  "par": 3,
+  "swiftTime": 8.0,
+  "hint": "Three jobs. One of you for each.",
+  "hearing": 40,
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "lure", "bell": [36, 1] } },
+  "guards": [{ "route": [[20, 2], [20, 17]], "mode": "pingpong" }]
+}
