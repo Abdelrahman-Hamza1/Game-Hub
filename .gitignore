@@ -1,0 +1,9 @@
+# Built games: scripts/build-games.mjs writes these from games-src/, and the deploy builds them fresh.
+# Add a line here for each new game in games-src/.
+/games/echo/
+/games/short-rope/
+
+node_modules/
+_site/
+*.log
+.DS_Store

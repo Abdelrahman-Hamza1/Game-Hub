@@ -17,8 +17,8 @@ npm run build        # typecheck + build into ../../games/echo (the folder the h
 To see it inside the hub (with the Game Night bar): `npm run build`, then from the repo root run
 `python3 -m http.server 8000` and open `http://localhost:8000/games/echo/`.
 
-**Always run `npm run build` before committing gameplay changes.** GitHub Pages serves
-`games/echo/` straight from the branch, so the built files must be committed too.
+`games/echo/` is build output: it's git-ignored, and the deploy rebuilds it from source (see the
+hub README). Don't commit it.
 
 ## Layout
 
@@ -67,13 +67,10 @@ testable headlessly, and the bot playtests in `tests/levels.test.ts` rely on it.
 so it runs from any folder on any static host. The only network request at runtime is Google Fonts;
 every level is bundled into the JavaScript.
 
-**GitHub Pages (how Game Night ships):**
-1. `npm test && npm run build` in `games-src/echo/`.
-2. Commit both the source and `games/echo/` (Pages serves the branch as-is; there's no build step
-   on GitHub's side).
-3. Push to `main`. With Settings → Pages → "Deploy from a branch" → `main` / root, the game is live
-   at `https://<user>.github.io/<repo>/games/echo/`, inside the hub.
-4. The repo root has `.nojekyll`, which keeps Jekyll from touching anything.
+**GitHub Pages (how Game Night ships):** push to `main`. The hub's `.github/workflows/deploy.yml`
+runs `node scripts/build-games.mjs --ci`, which tests and builds every game in `games-src/`, then
+publishes the site. A failing Echo test blocks the deploy. The game is live at
+`https://<user>.github.io/<repo>/games/echo/`, inside the hub.
 
 **Echo on its own (Netlify, Vercel, Cloudflare Pages, any static host):** build, then publish the
 contents of `games/echo/`. Build command `npm run build`, output directory `../../games/echo`

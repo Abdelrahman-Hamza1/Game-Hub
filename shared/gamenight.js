@@ -28,6 +28,9 @@
  *   .end(resultText)         host only: back to the lobby for everyone, showing resultText
  *
  * Messages must be plain data (JSON-like). Keep them small; they go over the network.
+ *
+ * Layout: outside a room the SDK puts a bar at the top of <body>. A game that fills the window
+ * with position: fixed should start below it: top: var(--gn-bar-h, 0px).
  */
 (function () {
   'use strict';
@@ -241,6 +244,21 @@
     }
 
     document.body.prepend(bar);
+
+    // Full-screen games (position: fixed canvases) can keep clear of the bar with
+    // top: var(--gn-bar-h, 0px). It stays 0 inside a room, where there's no bar.
+    const root = document.documentElement;
+    let lastH = -1;
+    const setH = () => {
+      const px = bar.offsetHeight;
+      if (px === lastH) return;
+      lastH = px;
+      root.style.setProperty('--gn-bar-h', px + 'px');
+      window.dispatchEvent(new Event('resize')); // let canvases re-measure
+    };
+    setH();
+    if (window.ResizeObserver) new ResizeObserver(setH).observe(bar);
+    else window.addEventListener('resize', setH);
   }
 
   /** An online-only game opened directly: offer to host a room with it. */
