@@ -91,7 +91,9 @@ Push to `main`: the hub's `.github/workflows/deploy.yml` tests and builds every 
 
 - [x] M1 Core loop: sim, recording/replay, paradoxes, plates, doors, lure, guard, timeline lanes
       with re-record, retry, delete; levels 1-1 to 1-5 with solution tests.
-- [ ] M2 Timeline and planning
+- [x] M2 Timeline and planning: scrub (drag the ruler, `,` `.`), trim (drag a bar's ends or the bar), plan
+      paths with a dot per second, markers with tooltips (upcoming ones faint while recording),
+      detection explained in words and with a red line, also for the plan preview.
 - [ ] M3 Chapter 1 complete
 - [ ] M4 Feel and audio
 - [ ] M5 Chapter 2

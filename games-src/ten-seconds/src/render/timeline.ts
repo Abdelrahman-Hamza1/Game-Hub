@@ -19,6 +19,12 @@ export interface TimelineState {
   recording: boolean;
   /** markers for every lane (plan preview or live loop) */
   events: SimEvent[];
+  /** copies' planned markers still ahead of the playhead (drawn faint) */
+  upcoming: SimEvent[];
+  /** the marker under the pointer */
+  tip: SimEvent | null;
+  /** words for a marker ("rings the bell") */
+  describe: (e: SimEvent) => string;
   /** lanes that ended in a paradox, with the tick */
   paradox: Map<number, number>;
   /** can the player scrub/trim/re-record (not in hard-core) */
@@ -35,6 +41,19 @@ export type Hit =
   | { kind: 'bar'; lane: number }
   | { kind: 'ruler' }
   | { kind: 'lane'; lane: number };
+
+const VERB: Partial<Record<EventKind, string>> = {
+  press: 'presses',
+  pickup: 'picks up',
+  drop: 'drops',
+  pass: 'passes through a window',
+  throw: 'throws a coin',
+  crouch: 'crouches',
+  vault: 'vaults',
+  paradox: 'breaks (paradox)',
+  seen: 'is seen',
+  win: 'gets out',
+};
 
 const MARK: Partial<Record<EventKind, string>> = {
   press: '●',
@@ -121,6 +140,43 @@ export class Timeline {
       if (x > xs && x < xe) return { kind: 'bar', lane };
     }
     return { kind: 'lane', lane };
+  }
+
+  /** The marker under the pointer, if any. */
+  markerAt(cx: number, cy: number, s: TimelineState): SimEvent | null {
+    const r = this.canvas.getBoundingClientRect();
+    const x = cx - r.left;
+    const y = cy - r.top;
+    const row = Math.floor((y - this.rulerH) / this.rowH);
+    let best: SimEvent | null = null;
+    let bestD = 7;
+    for (const e of [...s.events, ...s.upcoming]) {
+      if (e.actor !== row || !MARK[e.kind]) continue;
+      const d = Math.abs(this.xOf(e.t, s.loopTicks) - x);
+      if (d < bestD) {
+        bestD = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  private tipBox(text: string, x: number, rowY: number): void {
+    const ctx = this.ctx;
+    ctx.font = `600 11px ${FONT_UI}`;
+    const w = ctx.measureText(text).width + 14;
+    const bx = Math.max(4, Math.min(this.w - w - 4, x - w / 2));
+    const by = Math.max(2, rowY - 20);
+    ctx.fillStyle = 'rgba(232, 240, 251, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect?.(bx, by, w, 18, 5);
+    if (!ctx.roundRect) ctx.rect(bx, by, w, 18);
+    ctx.fill();
+    ctx.fillStyle = '#091526';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, bx + 7, by + 9.5);
+    ctx.textAlign = 'center';
   }
 
   rowCount(s: TimelineState): number {
@@ -261,14 +317,33 @@ export class Timeline {
     // markers
     ctx.font = `700 11px ${FONT_UI}`;
     ctx.textAlign = 'center';
-    for (const e of s.events) {
-      if (e.actor < 0 || e.actor >= rows) continue;
+    const mark = (e: SimEvent, alpha: number) => {
+      if (e.actor < 0 || e.actor >= rows) return;
       const g = MARK[e.kind];
-      if (!g) continue;
+      if (!g) return;
       const x = this.xOf(e.t, L);
       const y = this.rowY(e.actor) + this.rowH / 2 + 1;
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = e.kind === 'paradox' || e.kind === 'seen' ? C.threat : e.kind === 'win' ? C.target : '#fff';
       ctx.fillText(g, x, y);
+      ctx.globalAlpha = 1;
+    };
+    for (const e of s.upcoming) mark(e, 0.35);
+    for (const e of s.events) mark(e, 1);
+
+    // trim times while dragging a handle
+    if (s.drag && (s.drag.kind === 'start' || s.drag.kind === 'end')) {
+      const rec = s.lanes[s.drag.lane];
+      if (rec) {
+        const t = s.drag.kind === 'start' ? rec.delay : rec.delay + rec.cut;
+        const x = this.xOf(t, L);
+        const label = s.drag.kind === 'start' ? `starts ${(rec.delay / HZ).toFixed(1)}s` : `stops ${(t / HZ).toFixed(1)}s`;
+        this.tipBox(label, x, this.rowY(s.drag.lane));
+      }
+    }
+    if (s.tip) {
+      const e = s.tip;
+      this.tipBox(`${e.actor === s.liveSlot ? 'You' : `Copy ${e.actor + 1}`} ${s.describe(e) || VERB[e.kind] || e.kind} at ${(e.t / HZ).toFixed(2)}s`, this.xOf(e.t, L), this.rowY(e.actor));
     }
 
     // playhead

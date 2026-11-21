@@ -61,6 +61,7 @@ export class PlayScreen {
   private history: Float32Array[] = [];
   private stride = 0;
   private hover: Hit | null = null;
+  private tip: SimEvent | null = null;
   private drag: { hit: Hit; x0: number; delay0: number; cut0: number } | null = null;
   private stepTimers = new Map<number, number>();
   private caught: Caught | null = null;
@@ -385,6 +386,7 @@ export class PlayScreen {
     // the preview plays every copy except a lane being re-recorded
     const kept = lanes.filter((r): r is NonNullable<typeof r> => !!r);
     this.preview.setPlan(kept, s.loopTicks());
+    this.planVersion++;
     // markers and paradoxes are reported by preview actor index; map back to lanes
     const map = lanes.map((r, i) => (r ? i : -1)).filter((i) => i >= 0);
     this.planEvents = this.preview.events.map((e) => ({ ...e, actor: e.actor >= 0 ? map[e.actor] : e.actor }));
@@ -401,6 +403,8 @@ export class PlayScreen {
   }
 
   private planEvents: SimEvent[] = [];
+  private planVersion = 0;
+  private seekKey = '';
   private planParadox = new Map<number, number>();
   private planCaught: Caught | null = null;
 
@@ -424,7 +428,12 @@ export class PlayScreen {
       w = this.payoff?.world ?? w;
       zoom = this.o.reduced() ? 1 : 1.12;
     } else if (s.phase === 'ready' && this.scrubT !== null) {
-      w = this.preview.seek(this.scrubT);
+      const key = `${this.planVersion}:${this.scrubT}`;
+      if (key !== this.seekKey) {
+        this.preview.seek(this.scrubT);
+        this.seekKey = key;
+      }
+      w = this.preview.world;
     }
     const alpha = this.view === 'play' && s.phase === 'recording' ? Math.min(1, this.acc * HZ) : 1;
     this.renderer.draw(w, {
@@ -437,7 +446,7 @@ export class PlayScreen {
       reduced: this.o.reduced(),
       debug: this.debug,
       rewind,
-      caught: this.view === 'caught' ? this.caught : null,
+      caught: this.view === 'caught' ? this.caught : w === this.preview.world && w.caught ? w.caught : null,
       zoom,
       dim: this.paused ? 0.55 : 0,
     });
@@ -451,6 +460,8 @@ export class PlayScreen {
     const liveEvents = recording || this.view === 'payoff' || this.view === 'won' ? w.log : [];
     // during a live loop, every lane's markers come from that loop
     const events = recording ? liveEvents : this.view === 'payoff' || this.view === 'won' ? liveEvents : this.planEvents;
+    // while recording, what the copies are still going to do shows ahead of the playhead
+    const upcoming = recording ? this.planEvents.filter((e) => e.t > w.t && e.actor !== s.liveSlot() && e.kind !== 'seen') : [];
     let t = 0;
     if (recording) t = this.view === 'rewind' ? Math.round(w.t) : w.t;
     else if (this.view === 'payoff' || this.view === 'won') t = w.t;
@@ -467,20 +478,48 @@ export class PlayScreen {
       selected: s.selected,
       recording,
       events,
+      upcoming,
       paradox,
       editable: s.diff.timeline,
       maxCopies: s.maxCopies(),
       hover: this.hover,
       drag: this.drag?.hit ?? null,
+      tip: this.tip,
+      describe: (e) => this.describeEvent(e),
     };
+  }
+
+  private describeEvent(e: SimEvent): string {
+    const lv = this.lv;
+    const item = (i: number) => ({ target: 'the ' + (lv.json.targetName ?? 'gem'), card: 'the keycard', mirror: 'the mirror', coin: 'a coin' })[lv.items[i]?.kind ?? 'target'];
+    switch (e.kind) {
+      case 'press': {
+        const t = lv.triggers[e.a];
+        if (!t) return 'presses';
+        if (t.type === 'lure') return 'rings the bell';
+        if (t.type === 'switch') return `flips switch ${t.letter} ${e.b ? 'on' : 'off'}`;
+        if (t.type === 'button') return `presses button ${t.letter}`;
+        if (t.type === 'shutter') return 'blinds the camera';
+        return 'presses';
+      }
+      case 'pickup':
+        return `picks up ${item(e.a)}`;
+      case 'drop':
+        return `drops ${item(e.a)}`;
+      case 'pass':
+        return `passes ${item(e.a)} through a window`;
+      default:
+        return '';
+    }
   }
 
   private hudKey = '';
 
   private drawHud(w: World): void {
     const s = this.session;
-    const left = Math.max(0, (s.loopTicks() - (s.phase === 'recording' || this.view === 'caught' ? w.t : 0)) / HZ);
-    const loopN = s.selected >= 0 ? s.selected + 1 : s.lanes.length + 1;
+    const shownT = s.phase === 'recording' || this.view === 'caught' || this.view === 'payoff' ? w.t : s.phase === 'ready' && this.scrubT !== null ? this.scrubT : 0;
+    const left = Math.max(0, (s.loopTicks() - shownT) / HZ);
+    const loopN = this.view === 'rewind' ? s.lanes.length : s.selected >= 0 ? s.selected + 1 : s.lanes.length + 1;
     const total = s.loopTicks() / HZ;
     const frac = left / total;
     const key = [left.toFixed(1), loopN, s.lanes.length, s.selected, this.view, this.debug ? this.fps.toFixed(0) + w.t : ''].join('|');
@@ -649,10 +688,15 @@ export class PlayScreen {
     const tl = this.tlCanvas;
     tl.addEventListener('pointermove', (e) => {
       if (this.drag) return this.onDrag(e);
-      this.hover = this.timeline.hit(e.clientX, e.clientY, this.tlState());
+      const st = this.tlState();
+      this.hover = this.timeline.hit(e.clientX, e.clientY, st);
+      this.tip = this.timeline.markerAt(e.clientX, e.clientY, st);
       tl.style.cursor = !this.hover ? 'default' : this.hover.kind === 'start' || this.hover.kind === 'end' ? 'ew-resize' : this.hover.kind === 'bar' ? 'grab' : 'pointer';
     });
-    tl.addEventListener('pointerleave', () => (this.hover = null));
+    tl.addEventListener('pointerleave', () => {
+      this.hover = null;
+      this.tip = null;
+    });
     tl.addEventListener('pointerdown', (e) => {
       audio.unlock();
       const s = this.session;
@@ -746,10 +790,8 @@ export class PlayScreen {
     // snap to tenths of a second
     const snap = (v: number) => Math.round(v / 6) * 6;
     if (d.hit.kind === 'start') {
-      // the start handle delays the copy (the bar slides right); the end stays where it was
-      const end = d.delay0 + d.cut0;
-      const delay = Math.max(0, Math.min(end - 6, snap(d.delay0 + dt)));
-      s.trim(lane, delay, Math.min(r.len, end - delay));
+      // the start handle delays the copy: it waits on the start tile, then plays from its first frame
+      s.trim(lane, Math.max(0, Math.min(L - 6, snap(d.delay0 + dt))), d.cut0);
     } else if (d.hit.kind === 'end') {
       s.trim(lane, d.delay0, Math.max(6, snap(d.cut0 + dt)));
     } else if (d.hit.kind === 'bar') {

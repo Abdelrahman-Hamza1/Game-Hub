@@ -143,6 +143,8 @@ export interface Level {
 /** The JSON settings file, as written by hand. */
 export interface LevelJson {
   name?: string;
+  /** what the target is called in messages ("the ruby") */
+  targetName?: string;
   par?: number;
   swiftTime?: number;
   loopSeconds?: number;
