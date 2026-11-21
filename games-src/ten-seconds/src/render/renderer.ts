@@ -31,6 +31,10 @@ export interface DrawOpts {
   caught: Caught | null;
   /** extra zoom-out for the payoff replay (1 = normal) */
   zoom?: number;
+  /** css px of screen shake (0 = none) */
+  shake?: number;
+  /** 0..1: the slow last second (a pink vignette) */
+  urgency?: number;
 }
 
 interface Fx {
@@ -158,6 +162,12 @@ export class Renderer {
     }
   }
 
+  /** A ring that grows from a point (a new copy appearing, a level starting). */
+  ring(x: number, y: number, color: string, now: number): void {
+    this.fx.push({ kind: 'paradox', x, y, t0: now, color, life: 0.7 });
+    this.fx.push({ kind: 'spark', x, y, t0: now, color, life: 0.5 });
+  }
+
   clearFx(): void {
     this.fx = [];
   }
@@ -168,6 +178,10 @@ export class Renderer {
     const ctx = this.ctx;
     const focus = w.live ? [lerp(w.live.px, w.live.x, o.alpha), lerp(w.live.py, w.live.y, o.alpha)] as [number, number] : null;
     this.fit(o.zoom ?? 1, focus);
+    if (o.shake) {
+      this.ox += Math.round(Math.sin(o.now * 91) * o.shake);
+      this.oy += Math.round(Math.cos(o.now * 77) * o.shake);
+    }
     const d = this.dpr;
     ctx.setTransform(d, 0, 0, d, 0, 0);
     ctx.fillStyle = C.bg;
@@ -196,6 +210,14 @@ export class Renderer {
     if (o.debug) this.drawDebug(w, px);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
+    if (o.urgency) {
+      const r = Math.hypot(this.cssW, this.cssH) / 2;
+      const gr = ctx.createRadialGradient(this.cssW / 2, this.cssH / 2, r * 0.55, this.cssW / 2, this.cssH / 2, r);
+      gr.addColorStop(0, 'rgba(255, 126, 182, 0)');
+      gr.addColorStop(1, `rgba(255, 126, 182, ${0.22 * o.urgency})`);
+      ctx.fillStyle = gr;
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
+    }
     if (o.rewind >= 0) this.drawRewind(o.rewind, o.reduced, o.now);
     if (o.dim) {
       ctx.fillStyle = `rgba(5, 10, 20, ${o.dim})`;

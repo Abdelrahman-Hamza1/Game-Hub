@@ -227,6 +227,7 @@ function boot(): void {
     return play;
   },
   levels: LEVELS,
+  audio,
   startLevel: (id: string) => {
     const lv = levelById(id);
     if (lv) startLevel(lv);

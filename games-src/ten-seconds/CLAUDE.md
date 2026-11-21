@@ -97,7 +97,9 @@ Push to `main`: the hub's `.github/workflows/deploy.yml` tests and builds every 
       detection explained in words and with a red line, also for the plan preview.
 - [x] M3 Chapter 1 complete: windows, 1-6 to 1-F, results with ranks, title (with a demo heist),
       heist map with blueprint thumbnails, progress saved
-- [ ] M4 Feel and audio
+- [x] M4 Feel and audio: rewind streak (history played backwards) with tape sweep and chime, slow
+      last second with a vignette, payoff replay with zoom-out, sting and full-crew music, layered
+      music (one layer per copy), every sound synthesized, settings, reduced motion (fades, no shake)
 - [ ] M5 Chapter 2
 - [ ] M6 Editor and sharing
 - [ ] M7 Chapters 3–5

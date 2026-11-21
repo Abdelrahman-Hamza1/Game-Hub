@@ -36,6 +36,10 @@ export class Session {
   result: WinResult | null = null;
   /** why the last loop ended without a copy (for messages) */
   note: 'full' | null = null;
+  /** the lane the last finished loop went into (-1: none, the crew was full) */
+  lastLane = -1;
+  /** was that a re-recording? */
+  lastWasRedo = false;
   /** loops played (including retries), for stats */
   attempts = 0;
   private stamp = 0;
@@ -120,12 +124,16 @@ export class Session {
     const rec = this.rec;
     rec.delay = 0;
     rec.cut = rec.len;
+    this.lastWasRedo = this.selected >= 0;
     if (this.selected >= 0) {
       this.lanes[this.selected] = rec;
+      this.lastLane = this.selected;
     } else if (this.lanes.length < this.maxCopies()) {
       this.lanes.push(rec);
+      this.lastLane = this.lanes.length - 1;
     } else {
       this.note = 'full';
+      this.lastLane = -1;
     }
     this.selected = -1;
   }

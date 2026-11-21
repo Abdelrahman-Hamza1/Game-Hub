@@ -17,6 +17,7 @@ import { Preview } from '../sim/scrub';
 import type { Caught, SimEvent, World } from '../sim/world';
 import type { LiveInput } from '../sim/actors';
 import { h } from './dom';
+import { copyColor } from '../render/palette';
 
 export interface PlayOptions {
   level: Level;
@@ -309,7 +310,10 @@ export class PlayScreen {
     } else {
       audio.chime();
       const n = s.lanes.length;
-      this.say(n === 1 ? 'Copy 1 recorded. It will repeat exactly what you did. Now loop 2.' : `Copy recorded. ${n} of you now. Loop ${n + 1}.`);
+      const [sx, sy] = this.lv.start;
+      this.renderer.ring(sx + 0.5, sy + 0.5, copyColor(s.lastLane), performance.now() / 1000);
+      if (s.lastWasRedo) this.say(`Copy ${s.lastLane + 1} re-recorded. The rest of the plan is unchanged.`);
+      else this.say(n === 1 ? 'Copy 1 recorded. It will repeat exactly what you did. Now loop 2.' : `Copy ${n} recorded. ${n} of you now. Loop ${n + 1}.`);
     }
   }
 
@@ -334,6 +338,8 @@ export class PlayScreen {
     else lanes.push(s.rec);
     pw.setPlan(lanes, s.loopTicks());
     pw.seek(0);
+    // the whole crew plays: every copy's layer, including the one just recorded
+    audio.music?.setLayers(lanes.length);
     this.payoff = { world: pw.world, t0: performance.now() / 1000, stung: false, lanes };
     this.paybackAcc = 0;
     this.say('Clean getaway. Here\'s the whole plan.', 'good', true);
@@ -426,7 +432,6 @@ export class PlayScreen {
       this.restore(w, 1 - rewind);
     } else if (this.view === 'payoff' || this.view === 'won') {
       w = this.payoff?.world ?? w;
-      zoom = this.o.reduced() ? 1 : 1.12;
     } else if (s.phase === 'ready' && this.scrubT !== null) {
       const key = `${this.planVersion}:${this.scrubT}`;
       if (key !== this.seekKey) {
@@ -436,6 +441,14 @@ export class PlayScreen {
       w = this.preview.world;
     }
     const alpha = this.view === 'play' && s.phase === 'recording' ? Math.min(1, this.acc * HZ) : 1;
+    const reduced = this.o.reduced();
+    if (this.view === 'payoff' || this.view === 'won') {
+      const k = Math.min(1, (now - (this.payoff?.t0 ?? now)) / 0.9);
+      zoom = reduced ? 1 : 1 + 0.16 * (1 - Math.pow(1 - k, 3));
+    }
+    const shake = this.view === 'caught' && !reduced ? Math.max(0, 1 - (now - this.viewT0) / 0.35) * 5 : 0;
+    const left = s.loopTicks() - s.world.t;
+    const urgency = this.view === 'play' && s.phase === 'recording' && left <= HZ ? 1 - left / HZ : 0;
     this.renderer.draw(w, {
       alpha,
       now,
@@ -448,6 +461,8 @@ export class PlayScreen {
       rewind,
       caught: this.view === 'caught' ? this.caught : w === this.preview.world && w.caught ? w.caught : null,
       zoom,
+      shake,
+      urgency: s.diff.lastSecond < 1 ? urgency : 0,
       dim: this.paused ? 0.55 : 0,
     });
     this.timeline.draw(this.tlState(w));
