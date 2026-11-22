@@ -1,0 +1,10 @@
+{
+  "name": "Stone",
+  "par": 3,
+  "swiftTime": 4.6,
+  "targetName": "balance wheel",
+  "hint": "Whoever touches the rewind stone makes the next loop five seconds long. Some jobs you can't walk away from.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "C": { "rule": "timer", "open": [0, 2.5] } },
+  "triggers": { "a": { "type": "plate" } },
+  "guards": [{ "route": [[8, 1], [4, 1]], "mode": "pingpong", "face": 0, "start": 6.5 }]
+}

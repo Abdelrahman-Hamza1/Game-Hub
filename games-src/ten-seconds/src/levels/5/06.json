@@ -1,0 +1,14 @@
+{
+  "name": "Pendulum",
+  "par": 4,
+  "swiftTime": 6.4,
+  "targetName": "pendulum bob",
+  "hint": "The hall is lit end to end; the pendulum's shadow is the only dark spot, and it crosses once a loop. Everyone who rides it gets across. Somebody has to stay behind.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "plate", "wires": ["b"] },
+    "C": { "rule": "plate", "wires": ["c"] }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" }, "c": { "type": "plate" } },
+  "lamps": [{ "rect": [9, 3, 26, 9], "from": [5, 6], "to": [31, 6], "radius": 1.8, "period": 10 }]
+}

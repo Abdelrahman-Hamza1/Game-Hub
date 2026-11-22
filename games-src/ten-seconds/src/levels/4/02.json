@@ -1,0 +1,10 @@
+{
+  "name": "Coin Toss",
+  "targetName": "mail sack",
+  "par": 2,
+  "swiftTime": 7.7,
+  "hint": "The guard won't leave the mail sack for anything but a noise. A coin landing where he can't see the platform will do.",
+  "hearing": 14,
+  "guards": [{ "route": [[20, 8]], "face": 180 }],
+  "carriages": [{ "rect": [19, 11, 28, 14], "path": [[0, -14], [4.4, 0], [6.2, 0], [7.2, 8]] }]
+}

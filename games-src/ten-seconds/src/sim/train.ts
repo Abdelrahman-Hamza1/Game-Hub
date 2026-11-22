@@ -48,9 +48,35 @@ export function tileAtPoint(w: World, x: number, y: number): { t: number; mx: nu
 }
 
 export function opaqueAtPoint(w: World, x: number, y: number): boolean {
-  const { t, mx, my } = tileAtPoint(w, x, y);
+  // allocation-free: this runs for every sample of every sight line on train levels
+  const lv = w.lv;
+  const cs = lv.carriages;
+  let t: number;
+  let mx: number;
+  let my: number;
+  let k = -1;
+  for (let i = 0; i < cs.length; i++) {
+    const r = cs[i].rect;
+    const o = w.offs[i];
+    if (y >= r[1] && y < r[3] + 1 && x >= r[0] + o && x < r[2] + 1 + o) {
+      k = i;
+      break;
+    }
+  }
+  if (k >= 0) {
+    const c = cs[k];
+    const lx = Math.floor(x - w.offs[k] - c.rect[0]);
+    const ly = Math.floor(y - c.rect[1]);
+    t = c.tiles[ly * c.w + lx];
+    mx = c.rect[0] + lx;
+    my = c.rect[1] + ly;
+  } else {
+    mx = Math.floor(x);
+    my = Math.floor(y);
+    t = w.tileAt(mx, my);
+  }
   if (t === Tile.Wall || t === Tile.Emitter) return true;
-  if (t === Tile.Door) return !w.doorOpen[w.lv.doorAt[my * w.lv.w + mx]];
+  if (t === Tile.Door) return !w.doorOpen[lv.doorAt[my * lv.w + mx]];
   return false;
 }
 
@@ -72,6 +98,8 @@ function solidCode(w: World, t: number, mx: number, my: number, vaulting: boolea
  * Every solid box overlapping [x0,x1]×[y0,y1], as flat [cx, cy, hx, hy, …]: static tiles, the
  * parts of track tiles no carriage covers, and carriage tiles where they are now.
  */
+const SPAN = new Float64Array(64);
+
 export function solidBoxes(w: World, x0: number, y0: number, x1: number, y1: number, vaulting: boolean, out: number[]): void {
   out.length = 0;
   const lv = w.lv;
@@ -85,17 +113,35 @@ export function solidBoxes(w: World, x0: number, y0: number, x1: number, y1: num
       // track: solid except where a carriage covers it
       let a = tx;
       const b = tx + 1;
-      const spans: [number, number][] = [];
+      let n = 0;
       for (let k = 0; k < lv.carriages.length; k++) {
         const r = lv.carriages[k].rect;
         if (ty < r[1] || ty > r[3]) continue;
         const cx0 = r[0] + w.offs[k];
         const cx1 = r[2] + 1 + w.offs[k];
         if (cx1 <= tx || cx0 >= b) continue;
-        spans.push([Math.max(tx, cx0), Math.min(b, cx1)]);
+        SPAN[n * 2] = Math.max(tx, cx0);
+        SPAN[n * 2 + 1] = Math.min(b, cx1);
+        n++;
       }
-      spans.sort((p, q) => p[0] - q[0]);
-      for (const [s0, s1] of spans) {
+      if (n === 0) {
+        out.push(tx + 0.5, ty + 0.5, 0.5, 0.5);
+        continue;
+      }
+      // a few spans at most: insertion sort by start
+      for (let i = 1; i < n; i++) {
+        for (let j = i; j > 0 && SPAN[j * 2] < SPAN[(j - 1) * 2]; j--) {
+          const s0 = SPAN[j * 2];
+          const s1 = SPAN[j * 2 + 1];
+          SPAN[j * 2] = SPAN[(j - 1) * 2];
+          SPAN[j * 2 + 1] = SPAN[(j - 1) * 2 + 1];
+          SPAN[(j - 1) * 2] = s0;
+          SPAN[(j - 1) * 2 + 1] = s1;
+        }
+      }
+      for (let i = 0; i < n; i++) {
+        const s0 = SPAN[i * 2];
+        const s1 = SPAN[i * 2 + 1];
         if (s0 > a + 1e-9) out.push((a + s0) / 2, ty + 0.5, (s0 - a) / 2, 0.5);
         a = Math.max(a, s1);
       }

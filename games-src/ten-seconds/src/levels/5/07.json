@@ -1,0 +1,13 @@
+{
+  "name": "Watch Room",
+  "par": 4,
+  "swiftTime": 7.8,
+  "targetName": "master's chronometer",
+  "hint": "Two Auditors now. The upper one goes to where your newest copy ended, the lower one to where the copy before it ended.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "C": { "rule": "timer", "open": [0, 2.5] } },
+  "triggers": { "a": { "type": "plate" } },
+  "auditors": [
+    { "route": [[24, 9]], "face": 180, "wait": 1.5 },
+    { "route": [[24, 11]], "face": 180, "wait": 1.5 }
+  ]
+}

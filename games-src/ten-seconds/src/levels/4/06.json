@@ -1,0 +1,9 @@
+{
+  "name": "Conductor",
+  "targetName": "bonds case",
+  "par": 3,
+  "swiftTime": 6.4,
+  "hint": "The conductor only hears what lands in his own coach, and he goes to look. A coin through a window steers him: once to get you on, once to get you off.",
+  "guards": [{ "route": [[4, 8]], "face": 180 }],
+  "carriages": [{ "rect": [2, 7, 18, 9], "path": [[0, 0], [3.0, 0], [3.8, 10], [5.0, 13], [5.6, 20]] }]
+}

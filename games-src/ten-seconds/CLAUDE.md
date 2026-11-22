@@ -125,5 +125,6 @@ the first tap).
 - [x] M5 Chapter 2: 2-1 to 2-F (switches, inverted/timer doors, keycards, cameras, shutters)
 - [x] M6 Editor and sharing: paint, wire, route, inspector, live validation, test play, export /
       import, share links (`#level=`), autosaved draft, undo
-- [ ] M7 Chapters 3–5
+- [x] M7 Chapters 3–5: crates, mirrors, boosts, the Hound (ch. 3); the Night Train (ch. 4); the Clockwork
+      Vault with lamps, Auditors and the Watchmaker (ch. 5)
 - [ ] M8 Polish

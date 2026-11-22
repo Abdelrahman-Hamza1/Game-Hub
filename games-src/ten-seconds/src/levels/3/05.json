@@ -1,0 +1,8 @@
+{
+  "name": "Crossfire",
+  "par": 3,
+  "swiftTime": 8.0,
+  "targetName": "emerald",
+  "hint": "Two beams and only one mirror. A crate stops a beam too, and the pusher stays behind it.",
+  "lasers": [{ "dir": "down" }, { "dir": "down" }]
+}

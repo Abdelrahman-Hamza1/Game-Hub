@@ -1,0 +1,10 @@
+{
+  "name": "Mail Car",
+  "targetName": "gem",
+  "par": 3,
+  "swiftTime": 6.9,
+  "hint": "The mail car opens only while someone stands on the far plate, and once it leaves, its window is the only way out. Platform 2 is round the buffers.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } },
+  "carriages": [{ "rect": [6, 4, 17, 7], "path": [[0, 0], [4.2, 0], [5.2, 12], [5.6, 15], [6.6, 18], [7.2, 20]] }]
+}

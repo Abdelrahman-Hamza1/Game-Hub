@@ -1,0 +1,12 @@
+{
+  "name": "Tunnel",
+  "targetName": "payroll",
+  "par": 2,
+  "swiftTime": 7.9,
+  "hint": "The train waits in the tunnel, but the ledge is watched until the lights go out, for three seconds. Be back aboard when they come on.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } },
+  "cameras": [{ "from": 0, "to": 0 }, { "from": 180, "to": 180 }],
+  "blackouts": [[3.5, 6.5]],
+  "carriages": [{ "rect": [1, 5, 10, 8], "path": [[0, 0], [1.5, 0], [2.8, 13], [7.0, 13], [7.6, 26]] }]
+}

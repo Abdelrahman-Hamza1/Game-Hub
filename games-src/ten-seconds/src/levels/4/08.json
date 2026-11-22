@@ -1,0 +1,14 @@
+{
+  "name": "Last Stop",
+  "targetName": "strongbox",
+  "par": 4,
+  "swiftTime": 7.7,
+  "hint": "The strongbox waits in the left-luggage office, the exit at the end of the line. The front car's side door opens only from the car behind.",
+  "doors": { "B": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } },
+  "guards": [{ "route": [[16, 8]], "face": 180 }],
+  "carriages": [
+    { "rect": [10, 11, 15, 14], "path": [[0, 0], [4.7, 0], [5.6, 5.4], [6.8, 6.6], [7.6, 12]] },
+    { "rect": [17, 11, 26, 14], "path": [[0, 0], [4.7, 0], [5.6, 5.4], [6.8, 6.6], [7.6, 12]] }
+  ]
+}

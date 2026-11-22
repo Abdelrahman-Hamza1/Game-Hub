@@ -230,3 +230,37 @@ Judgment calls the brief didn't cover, or where it had to bend. Newest last.
   genuinely wide sweep leaves gaps a solo run can slip through.
 - **2-F cameras.** One camera watches the teller hall; the second watches the vault shaft (the
   shutter blinds that one).
+- **3-6 recording order.** The brief says "runner first, decoy last", but the Hound always trails
+  the *newest* copy, and a live player is never one, so the decoy has to be the last copy recorded
+  before the runner. The order is holder, decoy, runner. If the holder is the newest copy, the
+  Hound waits at the cellar door, right in the one-wide corridor the runner comes back through.
+- **3-2 and 3-3 crates are required.** 3-2's plate is next to the emitter, so only a crate can hold
+  it. 3-3 needs three plates held at once, and the crate is one of the three holders. Pushing it
+  before the stair copy has passed blocks that copy or makes a paradox: that is the lesson.
+- **3-7 Dance Floor.** It has four jobs: a double boost and a curtain plate, with no lure. Ringing a
+  bell is instant and keeps a guard away for 6 s or more, so any copy could do it in passing. The
+  booth guard stands still: every patrol through the crowd either swept the boost spot or left
+  the curtain holder an unwinnable window.
+- **3-8 coat check.** The doorway beams switch on at 2 s, which allows one copy per room, and a
+  blinking beam (1 s on, 1 s off) guards the coat check. The relay leaves 0.7 s windows, so this
+  is the chapter's least forgiving level.
+- **3-F lockdown.** One timer door (four tiles) open from 0 to 2.5 s seals the gallery, cellar,
+  mirror booth and crate corridor. That is what makes five loops impossible. The gallery guard
+  pauses 2.5 s at the south end after a 2.5 s warmup; other settings made him either harmless or
+  impossible.
+- **Chapter 4, the Night Train.** Carriages are rectangles of tiles that slide along x on keyframed
+  paths. Bare track is solid underfoot but clear to sight. Riders (the live player, finished
+  copies, items, crates, conductors) move with their carriage. Recorded copies already have the
+  ride in their positions.
+  - **4-2:** the conductor's hearing is 14 tiles so the bell reaches him.
+  - **4-5:** a plate in the dark (blackout).
+  - **4-6:** the conductor stands guard at the coach door.
+  - **4-7:** plates are structural (the coupling).
+- **Chapter 5, the Clockwork Vault.** Closets (small rooms behind timer doors) pin each copy to
+  one job. In 5-8 the short loops come last. In 5-F the case opens at 8 s and the niches lock.
+- **Swift times** for chapters 3–5 are set at or about 0.1–0.2 s under the scripted wins.
+- **Known train quirks** (none affect a shipped solution):
+  - A coin can come to rest on a carriage window tile.
+  - A conductor walking between waypoints doesn't path round carriage walls (the levels keep his
+    routes clear).
+  - An item dropped on bare track is picked up by the next carriage that covers it.

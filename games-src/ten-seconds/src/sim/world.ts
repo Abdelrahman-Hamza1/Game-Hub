@@ -259,6 +259,18 @@ export class World {
       fly: null,
     }));
     this.crates = lv.crates.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, px: x + 0.5, py: y + 0.5 }));
+    // things drawn inside a carriage start where the carriage is at tick 0
+    if (this.offs.length) {
+      const shift = (o: { x: number; y: number; px: number; py: number }) => {
+        const k = lv.carriageAt[Math.floor(o.y) * lv.w + Math.floor(o.x)];
+        if (k >= 0) {
+          o.x += this.offs[k];
+          o.px = o.x;
+        }
+      };
+      this.items.forEach(shift);
+      this.crates.forEach(shift);
+    }
     this.triggers = lv.triggers.map((t) => ({ pressed: false, on: t.on, until: -1 }));
     this.doorOpen = lv.doors.map(() => false);
     this.lasers = lv.lasers.map(() => ({ on: true, x0: 0, y0: 0, x1: 0, y1: 0, fx: 0, fy: 0, blockedBy: null }));

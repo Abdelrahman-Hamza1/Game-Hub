@@ -1,0 +1,10 @@
+{
+  "name": "Five Seconds",
+  "par": 3,
+  "swiftTime": 3.6,
+  "loopSeconds": 5,
+  "targetName": "mainspring key",
+  "hint": "Up here a loop lasts five seconds. Not enough time for one of you to do two jobs.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "B": { "rule": "plate", "wires": ["b"] } },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" } }
+}

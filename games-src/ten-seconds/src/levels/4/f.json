@@ -1,0 +1,17 @@
+{
+  "name": "The Bonds",
+  "targetName": "bonds",
+  "par": 5,
+  "swiftTime": 8.1,
+  "hint": "The vault needs someone standing in each of the two cars ahead of it; the side door needs someone on the tunnel ledge, which the cameras watch until the lights go out.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "B": { "rule": "plate", "wires": ["b"] }, "C": { "rule": "plate", "wires": ["c"] } },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" }, "c": { "type": "plate" } },
+  "guards": [{ "route": [[21, 8]], "face": 180 }],
+  "cameras": [{ "from": 0, "to": 0 }, { "from": 180, "to": 180 }],
+  "blackouts": [[6.8, 9.8]],
+  "carriages": [
+    { "rect": [8, 11, 17, 14], "path": [[0, 0], [4.85, 0], [5.5, 3], [6.3, 3], [7.4, 7]] },
+    { "rect": [19, 11, 23, 14], "path": [[0, 0], [4.85, 0], [5.5, 3], [6.3, 3], [7.4, 7]] },
+    { "rect": [25, 11, 29, 14], "path": [[0, 0], [4.85, 0], [5.5, 3], [6.3, 3], [7.4, 7]] }
+  ]
+}

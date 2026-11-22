@@ -1,0 +1,32 @@
+{
+  "name": "Dance Floor",
+  "par": 4,
+  "swiftTime": 6.0,
+  "targetName": "diamond",
+  "bodiesCollide": true,
+  "hint": "Bodies bump here: a copy that walks into another freezes. Two leg-ups reach the balcony, and the one on the bandstand needs a leg-up first. The plate in the cloakroom drops the booth's curtain.",
+  "doors": {
+    "B": {
+      "rule": "inverted",
+      "wires": [
+        "a"
+      ]
+    }
+  },
+  "triggers": {
+    "a": {
+      "type": "plate"
+    }
+  },
+  "guards": [
+    {
+      "route": [
+        [
+          24,
+          7
+        ]
+      ],
+      "face": 180
+    }
+  ]
+}

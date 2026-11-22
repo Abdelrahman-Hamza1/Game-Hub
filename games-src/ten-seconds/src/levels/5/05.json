@@ -1,0 +1,15 @@
+{
+  "name": "Remembered",
+  "par": 4,
+  "swiftTime": 8.4,
+  "targetName": "minute train",
+  "hint": "The Auditor goes to look for your newest copy, even behind a locked door. Where he stops to wait matters.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "plate", "wires": ["b"] },
+    "C": { "rule": "timer", "open": [0, 2.5] },
+    "D": { "rule": "timer", "open": [0, 2.5] }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" } },
+  "auditors": [{ "route": [[34, 8]], "face": 180, "wait": 1.5 }]
+}

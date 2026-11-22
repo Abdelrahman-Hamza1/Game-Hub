@@ -1,0 +1,10 @@
+{
+  "name": "The Auditor",
+  "par": 3,
+  "swiftTime": 7.0,
+  "targetName": "regulator",
+  "hint": "At the start of every loop the Auditor walks to where your newest copy ended. Choose that place well.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] }, "C": { "rule": "timer", "open": [0.5, 3] } },
+  "triggers": { "a": { "type": "plate" } },
+  "auditors": [{ "route": [[27, 7]], "face": 180, "wait": 1.5 }]
+}

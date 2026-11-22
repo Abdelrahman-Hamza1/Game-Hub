@@ -1,0 +1,21 @@
+{
+  "name": "The Watchmaker",
+  "par": 6,
+  "swiftTime": 8.5,
+  "targetName": "master watch",
+  "hint": "At 8 s the Watchmaker rewinds the room unless all three escapement levers are held, and his case opens only then. The Auditors still remember your two newest copies.",
+  "doors": {
+    "A": { "rule": "timer", "open": [0, 2.5] },
+    "B": { "rule": "timer", "open": [0, 2.5] },
+    "C": { "rule": "timer", "open": [0, 2.5] },
+    "D": { "rule": "timer", "open": [0, 5.5] },
+    "F": { "rule": "timer", "open": [0, 3] },
+    "G": { "rule": "timer", "open": [8, 10] }
+  },
+  "triggers": { "a": { "type": "lever" }, "b": { "type": "lever" }, "c": { "type": "lever" } },
+  "watchmaker": { "every": 8, "levers": ["a", "b", "c"] },
+  "auditors": [
+    { "route": [[28, 9]], "face": 180, "wait": 1.5 },
+    { "route": [[28, 11]], "face": 180, "wait": 1.5 }
+  ]
+}

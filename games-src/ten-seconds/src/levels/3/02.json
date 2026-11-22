@@ -1,0 +1,10 @@
+{
+  "name": "Heavy Lifting",
+  "par": 2,
+  "swiftTime": 8.6,
+  "targetName": "tiara",
+  "hint": "Nobody can stand on a plate inside a beam. A crate can, and it stays there for good.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } },
+  "lasers": [{ "dir": "left" }]
+}

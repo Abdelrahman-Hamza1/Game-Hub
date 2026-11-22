@@ -1,0 +1,21 @@
+{
+  "name": "The Spring",
+  "par": 5,
+  "swiftTime": 7.6,
+  "targetName": "mainspring",
+  "hint": "A closet only suits a five-second loop, and the watchmen look in at eight seconds. Plan which loops the stone makes short.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "plate", "wires": ["b"] },
+    "C": { "rule": "timer", "open": [0, 2.5] },
+    "G": { "rule": "plate", "wires": ["e"] },
+    "F": { "rule": "inverted", "wires": ["e"] },
+    "D": { "rule": "plate", "wires": ["f"] },
+    "H": { "rule": "inverted", "wires": ["f"] }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" }, "e": { "type": "plate" }, "f": { "type": "plate" } },
+  "guards": [
+    { "route": [[8, 1], [4, 1]], "mode": "pingpong", "face": 0, "start": 8.2 },
+    { "route": [[11, 1], [15, 1]], "mode": "pingpong", "face": 180, "start": 8.2 }
+  ]
+}

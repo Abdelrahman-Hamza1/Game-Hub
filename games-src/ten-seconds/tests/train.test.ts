@@ -76,6 +76,12 @@ describe('the train', () => {
     expect(p.seek(600).actors[0].state).not.toBe('paradox');
   });
 
+  it('things drawn in a carriage start where the carriage is at tick 0', () => {
+    const l = parseLevel('t', carRows.map((r, y) => (y === 6 ? r.slice(0, 4) + 'K' + r.slice(5) : r)).join('\n'), { carriages: [{ rect: [2, 5, 9, 7], path: [[0, 3], [2, 3]] }] });
+    const s = new Session(l);
+    expect(s.world.items.find((i) => i.kind === 'card')!.x).toBeCloseTo(4.5 + 3);
+  });
+
   it('missing the train strands the copy on the platform', () => {
     const s = new Session(lv());
     // too late: the doors have moved on

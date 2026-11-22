@@ -1,0 +1,13 @@
+{
+  "name": "Between Carriages",
+  "targetName": "jewel case",
+  "par": 2,
+  "swiftTime": 6.5,
+  "hint": "The jewel case is caged in the front carriage, and the cage opens from the one behind. The carriages don't connect.",
+  "doors": { "A": { "rule": "plate", "wires": ["a"] } },
+  "triggers": { "a": { "type": "plate" } },
+  "carriages": [
+    { "rect": [1, 5, 8, 8], "path": [[0, 0], [2.0, 12], [4.0, 12], [6.0, 19]] },
+    { "rect": [10, 5, 19, 8], "path": [[0, 0], [2.0, 12], [4.0, 12], [6.0, 19]] }
+  ]
+}

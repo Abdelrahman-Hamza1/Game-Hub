@@ -1,0 +1,12 @@
+{
+  "name": "The Hound",
+  "par": 3,
+  "swiftTime": 6.2,
+  "targetName": "pearls",
+  "hint": "The Hound can't see. It follows the trail of the copy you recorded most recently, two seconds behind, and it waits at any door it can't pass.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "timer", "open": [0, 1.5] }
+  },
+  "triggers": { "a": { "type": "plate" } }
+}

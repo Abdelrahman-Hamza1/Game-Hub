@@ -1,0 +1,15 @@
+{
+  "name": "Gears",
+  "par": 3,
+  "swiftTime": 7.6,
+  "targetName": "escape wheel",
+  "hint": "Each gear door lines up for one second in every five. Whoever rides a gear in stays on it until it comes round again.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "plate", "wires": ["b"] },
+    "F": { "rule": "cycle", "period": 5, "openFor": 1, "phase": 2 },
+    "G": { "rule": "cycle", "period": 5, "openFor": 1, "phase": 0.5 },
+    "H": { "rule": "cycle", "period": 5, "openFor": 1, "phase": 4 }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" } }
+}

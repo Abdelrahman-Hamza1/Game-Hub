@@ -1,0 +1,8 @@
+{
+  "name": "Tripwire",
+  "par": 2,
+  "swiftTime": 5.6,
+  "targetName": "brooch",
+  "hint": "The beam sees anyone who crosses it. Whoever carries the mirror is safe in it, and the beam stops at them.",
+  "lasers": [{ "dir": "down" }]
+}

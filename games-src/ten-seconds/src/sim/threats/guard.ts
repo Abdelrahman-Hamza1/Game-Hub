@@ -50,7 +50,8 @@ function wx(w: World, g: GuardState, x: number): number {
 }
 
 export function initGuard(w: World, def: GuardDef, index: number, auditor: boolean): GuardState {
-  const x = def.x + 0.5;
+  const ck = w.lv.carriageAt[def.y * w.lv.w + def.x] ?? -1;
+  const x = def.x + 0.5 + (ck >= 0 ? w.offs[ck] : 0);
   const y = def.y + 0.5;
   const first = def.route[def.toward] ?? def.route[0];
   const face = def.face ?? (first && (first[0] + 0.5 !== x || first[1] + 0.5 !== y) ? Math.atan2(first[1] + 0.5 - y, first[0] + 0.5 - x) : Math.PI / 2);

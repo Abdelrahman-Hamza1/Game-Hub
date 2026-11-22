@@ -1,0 +1,17 @@
+{
+  "name": "The Necklace",
+  "par": 6,
+  "swiftTime": 7.8,
+  "targetName": "necklace",
+  "hint": "At 2.5 s the gala locks down, and whoever is inside stays inside. The only way out is over the low wall. The Hound follows your newest copy, so make sure that copy never went in.",
+  "doors": {
+    "D": { "rule": "timer", "open": [0, 2.5] },
+    "A": { "rule": "plate", "wires": ["a"] }
+  },
+  "triggers": { "a": { "type": "plate" } },
+  "lasers": [{ "dir": "down" }, { "dir": "up" }],
+  "guards": [
+    { "route": [[27, 6], [27, 12]], "mode": "pingpong", "pauses": [0, 2.5], "warmup": 2.5 },
+    { "route": [[3, 16], [33, 16]], "mode": "pingpong" }
+  ]
+}

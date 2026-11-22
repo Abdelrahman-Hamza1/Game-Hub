@@ -1,0 +1,13 @@
+{
+  "name": "Coat Check",
+  "par": 3,
+  "swiftTime": 6.0,
+  "targetName": "necklace",
+  "hint": "At two seconds the beams across the doorways switch on, and nobody gets out of a room again. The necklace can still go through the hatches.",
+  "lasers": [
+    { "dir": "down", "period": 2, "on": 1 },
+    { "dir": "right", "period": 10, "on": 8, "phase": 8 },
+    { "dir": "right", "period": 10, "on": 8, "phase": 8 },
+    { "dir": "right", "period": 10, "on": 8, "phase": 8 }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Boarding",
+  "targetName": "briefcase",
+  "par": 1,
+  "swiftTime": 7.7,
+  "hint": "The 23:40 doesn't stop here. Wait at the gap and step in while its door slides past.",
+  "carriages": [{ "rect": [1, 5, 10, 8], "path": [[0, 0], [4, 10], [6.5, 22]] }]
+}

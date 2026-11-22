@@ -1,0 +1,13 @@
+{
+  "name": "Crate Paradox",
+  "par": 3,
+  "swiftTime": 6.0,
+  "targetName": "cufflinks",
+  "hint": "The vault airlock needs all three plates at once. The crate can hold one of them, but where it stops, nobody gets past.",
+  "doors": {
+    "A": { "rule": "plate", "wires": ["a"] },
+    "B": { "rule": "plate", "wires": ["b"] },
+    "C": { "rule": "plate", "wires": ["c"] }
+  },
+  "triggers": { "a": { "type": "plate" }, "b": { "type": "plate" }, "c": { "type": "plate" } }
+}
