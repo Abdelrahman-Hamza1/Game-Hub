@@ -66,11 +66,14 @@ export class Session {
     return this.selected >= 0 ? this.selected : this.lanes.length;
   }
 
-  /** Ticks in the loop played in lane `slot` (a rewind stone before it makes it short). */
+  /**
+   * Ticks in the loop played in lane `slot`. A rewind stone before it makes it short: always 5 s,
+   * even on Assist, because short-loop levels are built round the loop ending before some event.
+   */
   slotTicks(slot: number): number {
     const prev = slot > 0 ? this.lanes[slot - 1] : null;
-    const secs = prev && stoneTouchedBy(this.lv, prev) ? SHORT_LOOP_SECONDS : this.lv.loopSeconds;
-    return Math.round(secs * this.diff.loopScale * HZ);
+    if (prev && stoneTouchedBy(this.lv, prev)) return Math.round(SHORT_LOOP_SECONDS * HZ);
+    return Math.round(this.lv.loopSeconds * this.diff.loopScale * HZ);
   }
 
   loopTicks(): number {

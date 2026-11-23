@@ -20,3 +20,15 @@ describe('every level is beatable at par by its scripted solution', () => {
     });
   }
 });
+
+describe('every scripted solution also wins on Assist and Hard-core', () => {
+  for (const lv of LEVELS) {
+    it(`${lv.id} ${lv.name}`, () => {
+      const sol = solutionFor(lv.id);
+      for (const d of ['assist', 'hardcore'] as const) {
+        const r = runSolution(lv, sol, d);
+        expect(r.won, `${d}\n${describeRun(r)}`).toBe(true);
+      }
+    });
+  }
+});

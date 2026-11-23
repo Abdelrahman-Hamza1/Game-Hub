@@ -80,8 +80,8 @@ state and its events (`world.events`, `world.log`).
 ## Testing in a browser
 
 `window.__tenSeconds` exposes `play` (the PlayScreen, with `session` and `autopilot`),
-`startLevel(id)`, `autoplay(k)` (plays loop k of the level's solution through the real input path)
-and `manual()`.
+`startLevel(id)`, `autoplay(k)` (plays loop k of the level's solution through the real input path,
+then hands control back when the loop ends) and `manual()`.
 
 ## Deploying
 
@@ -127,4 +127,6 @@ the first tap).
       import, share links (`#level=`), autosaved draft, undo
 - [x] M7 Chapters 3–5: crates, mirrors, boosts, the Hound (ch. 3); the Night Train (ch. 4); the Clockwork
       Vault with lamps, Auditors and the Watchmaker (ch. 5)
-- [ ] M8 Polish
+- [x] M8 Polish: every solution also wins on Assist and Hard-core (tested); all 45 levels win in the
+      browser build in Chromium, and a sample from every chapter in Firefox and WebKit, with no
+      console errors; phone touch controls and frame cost checked on an iPhone profile

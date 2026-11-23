@@ -264,3 +264,12 @@ Judgment calls the brief didn't cover, or where it had to bend. Newest last.
   - A conductor walking between waypoints doesn't path round carriage walls (the levels keep his
     routes clear).
   - An item dropped on bare track is picked up by the next carriage that covers it.
+- **Rewind stones ignore Assist's longer loops.** The loop after a stone is 5 s on every
+  difficulty. Short-loop levels like 5-2 rely on that loop ending before something happens (the
+  watchman turning at 6.5 s). Stretching it to 7.5 s made 5-2 unwinnable on Assist.
+- **No `interactive-widget` in the viewport tag.** Safari logs it as an unknown key (a console
+  error) on every load. Only the editor has text fields, and browsers scroll a focused field into
+  view without it.
+- **Phone performance budget.** Measured on an iPhone 13 profile with the CPU slowed 4×: the play
+  screen's own work (simulation plus drawing) is about 2 ms a frame (median), and under 5 ms at the
+  95th percentile on the train finale (4-F). Both canvases cap the pixel ratio at 2.

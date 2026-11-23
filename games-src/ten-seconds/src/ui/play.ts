@@ -246,6 +246,9 @@ export class PlayScreen {
     const use = this.pendingUse;
     this.pendingUse = false;
     s.step(this.autopilot ? this.autopilot(s.world) : { dx: mx, dy: my, use });
+    // the test hook drives one loop per autoplay() call; left set, it would start the next loop
+    // on its own before the caller has seen this one end
+    if (s.phase !== 'recording') this.autopilot = null;
     const w = s.world;
     this.snapshot(w);
     const evs = w.events;

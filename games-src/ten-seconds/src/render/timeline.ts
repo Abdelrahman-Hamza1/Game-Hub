@@ -104,7 +104,7 @@ export class Timeline {
   /** css height wanted for this many rows (copies + the live lane) */
   heightFor(rows: number, narrow: boolean): number {
     this.rowH = narrow ? 21 : 24;
-    this.gutter = narrow ? 56 : 70;
+    this.gutter = narrow ? 62 : 70;
     return this.rulerH + rows * this.rowH + 8;
   }
 
@@ -276,7 +276,8 @@ export class Timeline {
         ctx.fillStyle = s.recording ? 'rgba(255, 77, 94, 0.9)' : 'rgba(255,255,255,0.5)';
         if (s.recording && Math.floor(performance.now() / 400) % 2 === 0) {
           ctx.beginPath();
-          ctx.arc(this.gutter - 9, mid, 3, 0, Math.PI * 2);
+          // just after the label, so it never sits on the text in the narrow (phone) gutter
+          ctx.arc(Math.min(this.gutter - 5, 31 + ctx.measureText(label).width + 6), mid, 3, 0, Math.PI * 2);
           ctx.fill();
         }
       }
