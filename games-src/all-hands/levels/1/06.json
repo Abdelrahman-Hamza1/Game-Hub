@@ -1,0 +1,31 @@
+{
+  "name": "Doorstop",
+  "hint": "A block marked 4 weighs 4 on a plate. Blocks never get tired.",
+  "par": 45,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 4,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": true
+    }
+  },
+  "why4": "The bridge needs weight 4 on the plate while everyone crosses, which only the 4-block gives, and it takes four to push it.",
+  "solution": [
+    "P1 stands under the one-way shelf at x=9; P2 jumps onto P1's head; P3 climbs P1 and P2 and jumps up through the shelf (height 4), touches the key at x=9 and drops back down.",
+    "Conga-push the 4-block right: P1 against its left side (x=13), P2, P3, P4 lined up behind, all hold Right.",
+    "Stop when the block is on the plate (x=22-25; counter 4/4): the bridge E over the 6-wide pit at x=30-35 appears.",
+    "Everyone walks over the bridge; P3 opens the door at x=44; all press Down.",
+    "Recovery: pushed too far, the block falls in the pit and comes back to its spawn; push it again."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Ballast",
+  "hint": "Three on one side lift one on the other. Crates help.",
+  "par": 60,
+  "scales": [
+    {}
+  ],
+  "why4": "The rider's pan only rises the full 3 tiles when the other pan outweighs it by 3: three players plus the crate against one rider; with three players it rises only 2, one short of the shelf.",
+  "solution": [
+    "Scale: pan B (x=4-6) and pan A (x=22-30) start level, 1 above the floor; the heavier pan sinks by the difference, up to 3. Pan B at +3 is 4 above the floor; from there a rider reaches the 6-high shelf (x=7-17) with a jump (6.5). At +2 it is 5.5: not enough. Pan A at -3 is 2 below the floor, so its riders can always hop out.",
+    "A 2-high step at x=7-8 stands right beside pan B, under the shelf: from its top a short hop left lands on pan B at +3 (the shelf is directly overhead, so nobody can climb the shelf from the step itself).",
+    "P1 crosses pan A to the shelf side first. P2 and P3 stand on the left of pan A (x=22-23), P4 grabs the crate at x=32 and stands on the right (x=26) holding it (carried weight counts): weight 4, pan B rises 3. Thrown crates land around x=24-25, so keep that spot clear.",
+    "P1 hops onto the step, over onto pan B (4 vs 1 keeps it at +3), jumps straight up past the shelf's edge and lands on the shelf. P1 jumps over the crates to the key at x=13 and opens the door at x=16 right away (so nobody picks the key up instead of a crate).",
+    "P1 grabs a crate from the right, walks to the shelf's right end (x=17) and throws it right: it lands on pan A (about 7 tiles). Pan A now weighs 5.",
+    "P2 hops out of pan A (still 4 there, pan B stays at +3), walks under the shelf to the step, onto pan B, onto the shelf, and waits at its left end.",
+    "P1 throws the second crate; P3 does what P2 did. P4 sets its crate down on the right of pan A and hops left over the two-crate stack. P1 throws the third crate (pan A holds 4 crates); P4 does the same.",
+    "All press Down at the open door."
+  ]
+}

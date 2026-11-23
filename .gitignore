@@ -3,6 +3,7 @@
 /games/echo/
 /games/short-rope/
 /games/ten-seconds/
+/games/all-hands/
 
 node_modules/
 _site/

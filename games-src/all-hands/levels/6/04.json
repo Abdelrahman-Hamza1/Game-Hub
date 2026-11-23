@@ -1,0 +1,48 @@
+{
+  "name": "Conveyor",
+  "hint": "Ride the belts, and nobody gets left on the ground floor.",
+  "par": 130,
+  "scroll": 1.0,
+  "lifts": [
+    {
+      "n": 4,
+      "path": [
+        [38, 15],
+        [38, 9]
+      ]
+    }
+  ],
+  "movers": [
+    {
+      "path": [
+        [22, 15],
+        [27, 15]
+      ],
+      "speed": 2
+    },
+    {
+      "path": [
+        [86, 15],
+        [86, 9]
+      ],
+      "speed": 1.5
+    }
+  ],
+  "bridges": [
+    {
+      "n": 2
+    }
+  ],
+  "why4": "The lift up the 6-high deck only rises with all four aboard; one player alone can never get the team past it.",
+  "solution": [
+    "Timing: the screen scrolls 1 t/s; its left edge reaches the ferry (x=22) at t=22 s, the lift (x=38) at t=38 s and the bridge (x=48) at t=48 s; the last screen (x>=80) is static from t=80 s. Worst case the ferry has both pairs across by t~16 s.",
+    "Everyone hops the bump at x=9-10 and jumps the 2-wide pit at x=14-15.",
+    "Ferry: the 2-wide mover shuttles in the 7-wide pit between x=22 and x=27 (2 t/s, 5 s round trip). P1 and P2 step on when it is at x=22 and step off right at x=29 when it reaches x=27; P3 and P4 take the next trip (about 10 s for both).",
+    "Everyone steps onto the lift at x=38-41 (4/4): it rises 6 tiles (3 s); step right onto the deck at x=42.",
+    "Fragile bridge (holds 2) over the 6-wide pit at x=48-53: P1 and P2 walk across together, then P3 and P4.",
+    "Jump the 3-wide pit at x=60-62; drop off the deck end at x=72 onto the floor.",
+    "Final screen: the 2-wide mover at x=86-87 goes up and down between the floor (y=15, over a pit) and y=9 (1.5 t/s). P1 steps on at the bottom, rides up, steps right onto the floating shelf at x=88-92 (1 higher), touches the key at x=90, and drops down.",
+    "P1 opens the door at x=105; all press Down.",
+    "Recovery: anyone popped drops back in above the teammate furthest behind; a broken bridge regrows after 3 s."
+  ]
+}

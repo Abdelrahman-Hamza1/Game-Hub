@@ -1,0 +1,42 @@
+{
+  "name": "Going Up",
+  "hint": "\"0/4\" on a lift: it rises with four aboard, and sinks if anyone steps off. Jump off together!",
+  "par": 45,
+  "plates": [
+    {
+      "n": 1,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 4,
+      "path": [
+        [
+          26,
+          23
+        ],
+        [
+          26,
+          13
+        ]
+      ]
+    }
+  ],
+  "why4": "The lift only rises with all four aboard, so a crate (not a friend) has to hold the plate that opens the gate at the top.",
+  "solution": [
+    "P3 and P4 move right out of the way. P1 stands against the shelf at x=5; P2 jumps off P1's head onto the shelf (height 3), grabs the crate at x=1, walks off with it and drops it (Down+Grab) on the plate at x=12-13: gate A at the top (x=30) opens.",
+    "Everyone hops the crate (walking into it would push it off the plate) and the 2-wide pit at x=17-18; P4 touches the key at x=21.",
+    "All four stand on the lift at x=26-29 (4/4); it rises 10 tiles to the workbench top.",
+    "At the top all four jump right through gate A at the same time: as soon as one steps off, the lift (now short of four) slides back down with whoever is still on it.",
+    "P4 opens the door at x=40; all press Down.",
+    "Recovery: anyone left at the bottom needs the whole team: the others drop back down the shaft and ride up again with them."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "Hold the Gate",
+  "hint": "\"2/2\" on a plate: two friends standing on it keep the gate open.",
+  "par": 35,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The gate needs two on a plate: two hold it from outside while two go in and hold the inside plate; a lone player inside cannot hold a 2-plate.",
+  "solution": [
+    "P1 and P2 stand on the outer plate at x=8-9 (counter shows 2/2); gate A at x=13 opens.",
+    "P3 and P4 walk through the gate and stand on the inner plate at x=16-17.",
+    "P1 and P2 walk through the gate and stop at x=14-15, just past it (or hop over P3 and P4); then P3 and P4 step off and the gate closes behind everyone.",
+    "P1 stands at the left end of the 3-high shelf (x=23-26; it has 2 tiles of headroom, so everyone else walks under it); P2 jumps on P1's head and up onto the shelf, touches the key at x=25 and jumps down on the far side.",
+    "Everyone jumps the 2-wide pit at x=31-32; P2 opens the door at x=40; all press Down."
+  ]
+}

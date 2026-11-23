@@ -1,0 +1,40 @@
+{
+  "name": "Tied Together",
+  "hint": "You are roped together: nobody can wander off to hold a plate. Find something else to do it.",
+  "par": 35,
+  "leash": 6,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "why4": "The 4-high wall needs two bases for each climber, and the plate on top needs both climbers, so two hold the tunnel open while two walk under.",
+  "solution": [
+    "Leash 6: the plate at x=2-3 is 31 tiles from gate A (x=34), so nobody can hold it for the others; two crates must.",
+    "The stall is a counter (x=9-12, top at height 3) that you can walk under. P1 stands against its right end (x=13); P2 jumps off P1's head onto the counter.",
+    "P2 throws the crate at x=11 off to the left (it lands on the floor near x=6), then carries the crate at x=10 to the counter's left end (x=9.5) and throws it onto the plate.",
+    "P1 picks up the first crate, hops over the second and sets it down on the plate's left half (2/2): gate A opens. The team walks along under the counter (leash).",
+    "Everyone walks right, jumps the 2-wide pit at x=24-25, passes gate A at x=34.",
+    "P4 stands against the wall at x=40; P3 jumps onto P4's head; P2 and P1 climb P4 and P3 and jump onto the wall top (height 4).",
+    "P2 and P1 stand on the plate at x=43-44: tunnel gate E (x=41) opens; P3 hops down and P4, P3 walk through the tunnel.",
+    "P4 touches the key at x=50 and opens the door at x=52; P3 follows; P2 and P1 jump down to the right; all press Down.",
+    "Leash check: during the climb everyone is within ~3 tiles of the centre; the plate-to-gate trick fails because 31 > 2x6."
+  ]
+}

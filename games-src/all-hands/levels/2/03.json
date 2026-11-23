@@ -1,0 +1,36 @@
+{
+  "name": "Flip Side",
+  "hint": "One switch, two gates: when one opens, the other shuts.",
+  "par": 50,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A",
+        "E"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": true
+    }
+  },
+  "why4": "The block is marked 4, and it is the only way up the 4-high plateau.",
+  "solution": [
+    "P4 hops the 4-block, stands against gate A at x=15 and jumps into the switch above it (x=16): gate A opens, gate E (x=25) closes. P4 hops back over the block.",
+    "Conga-push the 4-block right: P4 against it at x=8, P3, P2, P1 behind; push it through A until it rests against E (block at x=23-24); everyone is now inside the chamber.",
+    "P1 steps back to x=17 (right of gate A) and jumps into the switch: A closes, E opens.",
+    "Conga-push the block on through E until it stops against the plateau wall (block at x=32-33).",
+    "Everyone climbs: floor -> block (2) -> plateau (2). P4 touches the key at x=40; jump the 2-wide pit at x=44-45; P4 opens the door at x=48; all press Down.",
+    "Recovery: the switch can be flipped back from either side at any time."
+  ]
+}

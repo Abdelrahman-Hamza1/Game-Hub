@@ -1,0 +1,28 @@
+{
+  "name": "Fling",
+  "hint": "Nobody to stand on? Get thrown.",
+  "par": 45,
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "Three must be thrown onto the roof to hold the 3-plate that opens the pen with the crate, and the fourth throws them and then climbs on the crate; with three, only two reach the roof.",
+  "solution": [
+    "P4 (nearest the gap) stands at x=16 (edge of the 2-wide gap at x=17-18); P3 stands beside P4, P4 grabs P3 and throws right: P3 lands on the roof (height 3, face at x=19). P4 throws P2 and then P1 the same way.",
+    "P1, P2, P3 stand on the plate at x=23-25 (3/3): pen gate A at x=9 opens.",
+    "P4 walks into the pen, grabs the crate at x=5, carries it to x=15 and puts it down at the gap's edge (hold Down + Grab), then fetches the key at x=2.",
+    "P4 hops onto the crate, runs off its far side and jumps onto the roof (the jump from the crate top clears the roof by 0.5, so take a run).",
+    "P4 sets the key down in front of P1 (P1 picks it up), or throws it ahead to whoever goes first.",
+    "Everyone jumps the 2-wide gap at x=31-32; P1 opens the door at x=40; all press Down.",
+    "Recovery: anyone falling in a gap respawns at the start and climbs via the crate; a crate that falls in returns to the pen (the three re-hold the plate)."
+  ]
+}

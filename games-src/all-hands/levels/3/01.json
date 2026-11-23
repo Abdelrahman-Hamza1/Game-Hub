@@ -1,0 +1,35 @@
+{
+  "name": "Special Delivery",
+  "hint": "Grab picks up a crate or a friend. Grab again to throw.",
+  "par": 50,
+  "plates": [
+    {
+      "n": 4,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": true
+    }
+  },
+  "why4": "The balcony plate needs weight 4 (two crates plus two thrown friends) while two cross and hold the far 2-plate; with three players only one can cross and the far plate stays at 1/2.",
+  "solution": [
+    "P1 stands at x=6 (edge of the 2-wide gap at x=4-5), grabs P2, faces left and throws: P2 lands on the balcony (x=1-3, height 3) and walks to the wall at x=1.",
+    "P1 throws P3 the same way; P3 hops onto P2's head, so the pile leaves room for the crates (a crate stops dead where it lands, about x=3).",
+    "P1 grabs the crate at x=13, walks to x=6, faces left and throws it onto the balcony; then the crate at x=15 the same way (it may perch on the balcony's edge; it still counts). Plate 4/4: bridge E over the 6-wide pit at x=19-24 appears.",
+    "P1 and P4 walk right over the bridge and stand on the far plate at x=27-28 (2/2), which keeps the bridge up.",
+    "P3 and P2 jump right off the balcony (over the crates and the gap at x=4-5), walk over the bridge and wait at x=25-26.",
+    "P4 stands at x=32 next to the key shelf (x=33-36, 3 high, everyone can walk under it); P1 jumps on P4's head, up onto the shelf, touches the key at x=35 and jumps down on the far side.",
+    "P1 opens the door at x=42; all four walk under the shelf and press Down.",
+    "Recovery: a crate that falls in the gap or the pit comes back to its spawn; throw it again."
+  ]
+}

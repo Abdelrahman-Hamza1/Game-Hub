@@ -1,0 +1,50 @@
+{
+  "name": "Two Balconies",
+  "hint": "The hatch has two locks. Each balcony holds one.",
+  "par": 40,
+  "plates": [
+    {
+      "n": 1,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 1,
+      "wires": [
+        "F"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "E",
+        "F"
+      ]
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    }
+  },
+  "bridges": [
+    {
+      "n": 1
+    }
+  ],
+  "why4": "Both balcony plates must be held while two go down the hatch and hold the 2-plate below for the balcony pair; with three, only one goes down and cannot hold the 2-plate.",
+  "solution": [
+    "P4 stands at x=27 (edge of the gap at x=28-29) with P3 beside, grabs P3, faces right and throws: P3 lands on the right balcony plate (x=30-32, height 3). Gate F (bottom half of the hatch) opens.",
+    "P1 stands at x=6 (edge of the gap at x=4-5) with P2 beside, grabs P2, faces left and throws: P2 lands on the left balcony plate (x=1-3). Gate E opens: the hatch at x=16-17 is open.",
+    "P4 and P1 drop through the hatch into the lower room.",
+    "P4 walks left over the 1-bridge (x=10-14), then P1 crosses after P4 is off it. Both stand on the plate at x=8-9 (2/2): the hatch stays open.",
+    "P2 and P3 jump off their balconies into the yard and drop through the hatch.",
+    "P1 and P4 step off the plate (the hatch closes; everyone is below) and cross the 1-bridge back to the right one at a time.",
+    "P2 stands at x=19 next to the key shelf (x=20-22, 3 high, everyone can walk under it); P3 jumps on P2's head onto the shelf, touches the key at x=21, jumps down on the far side; P3 opens the door at x=24; all four walk under the shelf and press Down.",
+    "Recovery: anyone falling in the lower pit respawns in the yard; two below stand on the lower plate to open the hatch again."
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "Crossed Wires",
+  "hint": "Your plate opens their gate. Their plate opens yours.",
+  "par": 45,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "why4": "Each pair can only pass while the other pair holds a 2-plate for it; a pair of one cannot hold a plate.",
+  "solution": [
+    "Downstairs, P3 and P4 jump the 2-wide pit at x=9-10 and wait at gate A (x=20).",
+    "Upstairs, P1 and P2 stand on the plate at x=16-17: gate A opens.",
+    "P3 and P4 walk through gate A and stand on the plate at x=28-29: gate E upstairs (x=24) opens.",
+    "P1 and P2 walk through gate E, hop the 2-high bump at x=32-33; P1 touches the key at x=36; both drop through the hole at x=38-40 into the lower corridor.",
+    "P3 and P4 step off their plate; everyone walks to the door at x=43; P1 opens it; all press Down."
+  ]
+}

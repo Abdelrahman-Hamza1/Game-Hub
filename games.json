@@ -84,5 +84,27 @@
     "added": "2026-11-20",
     "howTo": "Solo: tap as many times as you can in 10 seconds.\nIn a room: everyone's taps show up live. The host can reset or finish the round.",
     "dev": true
+  },
+  {
+    "id": "all-hands",
+    "title": "All Hands",
+    "blurb": "A co-op platformer for exactly four friends. One key, one door, and the level clears when everyone is home.",
+    "players": [
+      4,
+      4
+    ],
+    "modes": [
+      "same-screen",
+      "online"
+    ],
+    "color": "mint",
+    "pattern": "dots",
+    "tags": [
+      "co-op",
+      "platformer",
+      "puzzle"
+    ],
+    "added": "2026-11-23",
+    "howTo": "Everyone is solid: stand on friends to reach high ledges, and push heavy blocks together (the number says how many).\nBring the key to the door, then everyone presses Down at it. The level clears when all four are home.\nGrab picks up a crate, the key or a friend; Grab again throws it (from solid ground). Down+Grab sets it down, or takes the key off a friend's head.\nKeyboard halves: WASD + E, arrows + /, IJKL + O, numpad. Gamepads and phones too. Q (or Y) for quick chat, Esc pauses.\nAlone? Practice alone and press Tab to switch between the four."
   }
 ]

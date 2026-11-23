@@ -1,0 +1,38 @@
+{
+  "name": "Odd One Out",
+  "hint": "Check your badge: some jobs only you can do.",
+  "par": 35,
+  "plates": [
+    {
+      "n": 1,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A",
+        "E"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "why4": "Only P4 can reach the plate that opens the slot, the 4-high ledge needs two friends under the climber, and only P3 can pass the mint gate to the button.",
+  "solution": [
+    "P4 walks onto the gold floor at x=9-10, drops through it into the cellar below and stands on the plate there: tall gate A at x=16 opens.",
+    "P2 and P1 hop over P3 (the climber goes last) and walk into the slot at x=17-19. P2 stands against the ledge at x=19; P1 jumps onto P2's head.",
+    "P3 jumps onto P1's head, then up onto the ledge (height 4), walks right through the mint gate at x=23, touches the key at x=26 and the button at x=28 (toggle: gates A and E open and stay open), hops the button and drops off the ledge's right end.",
+    "P4 jumps out of the cellar (2 up); P1 hops down; P1, P2, P4 walk through the tunnel under the ledge (mouth at x=20) to x=31+.",
+    "Everyone jumps the 2-wide pit at x=35-36; P3 opens the door at x=42; all press Down."
+  ]
+}

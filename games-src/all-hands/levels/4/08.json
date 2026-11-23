@@ -1,0 +1,68 @@
+{
+  "name": "Big Top",
+  "hint": "Three rings, four stars. Every act needs the whole troupe.",
+  "par": 120,
+  "plates": [
+    {
+      "n": 1,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "F"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "movers": [
+    {
+      "path": [
+        [30, 21],
+        [40, 21]
+      ],
+      "speed": 2
+    }
+  ],
+  "scales": [
+    {},
+    {}
+  ],
+  "why4": "Ring A lifts P4 with three players plus the crate as counterweight; ring B needs a two-friend tower on the ferry for P2 and a fourth on the plate; ring C needs two up top plus the crate to lift the last pair.",
+  "solution": [
+    "RING A. P4 stands on the right pan (x=15-17); the left pan (x=9-11) rises 1.",
+    "P1 grabs the crate at x=7 and, carrying it, hops onto the left pan with P2 and P3. Weight 4 against 1: the right pan rises 3.",
+    "P4 jumps right through the gold post at x=18 onto the tower (5 high; 2 from the raised pan), touches the button at x=21 (gate A at the tunnel mouth opens), and drops off the right end of the raised floor down to the ferry dock (x=25+, 4 lower).",
+    "P3 jumps off P2's head out of the sunk shaft, P2 off P1's head; P1 (pan now 2 down) jumps out and drops the crate. P1, P2, P3 walk right over the pans and through the tunnel (x=18-24) and drop down to the ferry dock (x=25+).",
+    "RING B. P1 stands on the plate at x=26-27: gate E on the far block (x=47) opens and stays open while P1 stands there.",
+    "P2, P3, P4 board the ferry when it docks at x=30. P3 stands at its right end, P4 jumps onto P3's head, P2 jumps onto P4's head.",
+    "When the ferry nears the far block (its right edge at x>=42), P2 jumps right through the sky post at x=44 onto the block top (4 high, 2.2 from P4's head), walks through gate E, touches the key at x=48 and the button at x=49 (gate F at the tunnel mouth, x=44, opens).",
+    "At the next docking P4 hops down; P3 and P4 walk off the ferry into the tunnel and out to x=51+. P1 leaves the plate, rides the ferry over and walks through the tunnel. P2 jumps down to the right.",
+    "RING C. P1 stands at x=59 (left of the balcony, at the tunnel mouth); P2 jumps onto P1's head; P3 then P4 jump onto P2's head and up onto the balcony at x=60-62 (4 high).",
+    "P3 jumps the 3-wide recess (x=63-65), walks right past the door and the high pan, through the mint gate at x=72 and grabs the crate at x=74.",
+    "P2 hops down; P1 and P2 walk through the tunnel (x=60-62) into the recess and onto the low pan (x=63-65): P2 on the pan, P1 on P2's head. The high pan (x=69-71) rises 2.",
+    "P3 (carrying the crate) and P4 jump onto the raised high pan. Weight 3 against 2: the low pan rises 1; P1 jumps from P2's head onto the balcony; the low pan rises to +2 and P2 jumps up.",
+    "The high pan sinks 3: P4 jumps off P3's head out of its shaft, then P3 (pan 2 down) jumps out.",
+    "P2 opens the door at x=67; all press Down."
+  ]
+}

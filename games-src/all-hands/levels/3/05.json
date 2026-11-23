@@ -1,0 +1,29 @@
+{
+  "name": "Fire Escape",
+  "hint": "Up one floor at a time. Whoever is left behind gets a spring.",
+  "par": 35,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "Two must end up on the top floor to hold the 2-plate that unlids the springs, and each floor up costs one thrower left behind; with three, only one reaches the top.",
+  "solution": [
+    "P4 hops over the key at x=7 and stands at x=13 (edge of the 2-wide gap at x=14-15); P3 hops the key too and stands beside P4. P4 grabs P3 and throws right onto tier 1 (height 3, face x=16).",
+    "P2 picks up the key at x=7 and is thrown up to tier 1 by P4 too (a friend carrying the key can be thrown).",
+    "On tier 1, P3 stands at x=22 (edge of the gap at x=23-24), grabs P2 and throws right onto tier 2 (3 higher, face x=25). P4 throws P1 up to tier 1 and P3 throws P1 up to tier 2.",
+    "P2 and P1 stand on the plate at x=29-30 (2/2): both flush lids A open, showing springs one tile down at x=12 and x=21.",
+    "P4 steps into the hole at x=12, lands on the spring and steers right onto tier 1 (peak 4.5 above the floor), then steps into the hole at x=21 and steers right onto tier 2.",
+    "P3 steps into the hole at x=21 and steers onto tier 2.",
+    "P2 opens the door at x=37; all four press Down.",
+    "Recovery: anyone falling in a gap respawns at the start; while two hold the plate they come back up by the springs."
+  ]
+}

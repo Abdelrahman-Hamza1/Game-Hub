@@ -1,0 +1,19 @@
+{
+  "name": "Counterweight",
+  "hint": "Friends up top weigh just as much as friends down below.",
+  "par": 55,
+  "scales": [
+    {}
+  ],
+  "why4": "Stacking gets only two of you up the 4-high wall; the last two need the scale, and lifting a pair takes the two up top plus the crate on the high pan.",
+  "solution": [
+    "P1 touches the key on the 2-high bump at x=10 (carries it).",
+    "P1 stands at x=23 (just left of the upper level, at the tunnel mouth); P2 jumps onto P1's head; P3 jumps onto P2's head and up onto the upper level (height 4) at x=24-26; P4 does the same.",
+    "P2 hops down. P1 and P2 walk through the tunnel (x=24-26) into the recess and stand on the low pan (x=27-29): P2 stands on the pan, P1 jumps onto P2's head. The low pan sinks 2 and the high pan (x=34-36) rises 2.",
+    "Up top, P3 grabs the crate at x=31 and, carrying it, jumps onto the raised high pan (2 up); P4 jumps onto it too. Weight 3 against 2: the low pan rises 1.",
+    "P1 jumps from P2's head onto the upper level (2.1 up). The low pan rises to +2; P2 jumps up too.",
+    "The high pan is now 3 down: P4 jumps off P3's head out of its shaft; with P3 and the crate left it sits 2 down and P3 jumps out.",
+    "Everyone jumps the 2-wide pit at x=38-39; P1 opens the door at x=41; all press Down.",
+    "Recovery: anyone who falls in the pit respawns below; the three up top ride them up with the scale (three on the high pan lift one rider 2)."
+  ]
+}

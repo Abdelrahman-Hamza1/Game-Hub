@@ -1,0 +1,20 @@
+{
+  "name": "Creaky Floor",
+  "hint": "A bridge holds the number painted on it. One more and it gives way.",
+  "par": 35,
+  "bridges": [
+    {
+      "n": 1
+    },
+    {
+      "n": 3
+    }
+  ],
+  "why4": "The only way into the cellar is through the creaky floor, which holds 3 and breaks only under all four.",
+  "solution": [
+    "One at a time, each player walks over the 1-bridge (x=9-15): P1 first, then P2 once P1 is off, then P3, then P4. Two on it at once (or one carrying a friend) and it crumbles: both fall, respawn at the start, and it is back after 3 s.",
+    "All four walk onto the creaky floor at x=21-26 (stacking on heads also counts). At weight 4 it crumbles and everyone drops into the cellar.",
+    "P1 stands at x=33 next to the key shelf (x=34-36, 3 high, everyone can walk under it); P2 jumps on P1's head and onto the shelf, touches the key at x=35, jumps down on the far side.",
+    "P2 opens the door at x=44; all four walk under the shelf and press Down."
+  ]
+}

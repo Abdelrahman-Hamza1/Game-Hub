@@ -1,0 +1,67 @@
+{
+  "name": "Carousel",
+  "hint": "Everybody off at your own stop!",
+  "par": 115,
+  "buttons": [
+    {
+      "wires": [
+        "E"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "A"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "F"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "G"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "G": {
+      "invert": false
+    }
+  },
+  "movers": [
+    {
+      "path": [
+        [15, 22],
+        [38, 22],
+        [38, 9],
+        [15, 9],
+        [15, 22]
+      ],
+      "speed": 3
+    }
+  ],
+  "why4": "The four gates in front of the door are opened by four buttons in four closets, each behind a different colour gate.",
+  "solution": [
+    "The carousel car loops (24 s, it never stops): start island (x=15, y=22) -> bottom-right (x=38) -> up to the top-right (y=9) -> across to the top-left (x=15) -> down to the start. All four board it as it comes down the left side to the start island: line up at the island edge (P1 on P2's head, so four fit on the 3-wide car) and jump on together.",
+    "At the bottom-right island P1 steps off, walks through the coral gate at x=50, touches the button at x=52 (gate A, x=4, opens) and waits.",
+    "At the top-right island P2 steps off, walks through the sky gate at x=50, touches the key at x=51 and the button at x=52 (gate E, x=5, opens), and walks back to the dock (x=41).",
+    "At the top-left island P3 and P4 step off. P3 walks through the mint gate at x=3 and touches the button at x=1 (gate F, x=6); P4 walks onto the gold floor at x=6-8, drops onto the button knob at x=8 (gate G, x=7) and jumps straight back out to the right (1 up), so the toggle is touched only once. (Out to the left, P4 would be boxed in by the mint gate with only a 2-tile run-up for the jump back over the gold floor.)",
+    "P3 and P4 drop off the top-left island's right edge down to the start island (steer left while falling). On the car's next lap P1 boards it at the bottom-right island and P2 at the top-right island; they ride it round to the start island.",
+    "Everyone walks left through gates G, F, E, A into the hut; P2 opens the door at x=2; all press Down.",
+    "Recovery: anyone who falls respawns on the start island and catches the car. The buttons are toggles: touching one again closes its gate."
+  ]
+}

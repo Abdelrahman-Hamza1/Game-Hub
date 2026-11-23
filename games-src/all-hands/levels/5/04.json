@@ -1,0 +1,56 @@
+{
+  "name": "Tandem",
+  "hint": "Upstairs opens downstairs, downstairs opens upstairs. Keep in step: the rope is short.",
+  "par": 30,
+  "leash": 6,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "F"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "G"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "G": {
+      "invert": false
+    }
+  },
+  "why4": "Every gate is held open by a 2-plate on the other floor, so each pair needs the other pair standing on a plate.",
+  "solution": [
+    "Leash 6: the floors are 5 apart, so the pairs must stay within ~11 tiles of each other horizontally; every plate is placed so that works.",
+    "Downstairs P4 and P3 jump the 2-wide pit at x=5-6 and wait at gate A (x=10).",
+    "P1 and P2 stand on U1 (x=6-7): gate A opens. P3 and P4 walk through and stand on L1 (x=13-14): gate E upstairs (x=10) opens.",
+    "P1 and P2 walk through E, hop the bump at x=14, stand on U2 (x=17-18): gate F downstairs (x=21) opens.",
+    "P3 and P4 step off L1, walk through F and stand on L2 (x=24-25): gate G upstairs (x=21) opens.",
+    "P2 and P1 walk through G and hop the 2-high step at x=26-27; P2 touches the key at x=29 and drops through the hole at x=32-34, P1 follows (the rope pulls the others along).",
+    "P3 and P4 step off L2; everyone walks to the door at x=42; P2 opens it; all press Down."
+  ]
+}

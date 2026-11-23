@@ -1,0 +1,66 @@
+{
+  "name": "Clock In",
+  "hint": "The ring on the button is how long you have. Time it with the lift.",
+  "par": 55,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 3
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 3,
+      "path": [
+        [
+          14,
+          25
+        ],
+        [
+          14,
+          15
+        ]
+      ]
+    },
+    {
+      "n": 1,
+      "path": [
+        [
+          42,
+          25
+        ],
+        [
+          42,
+          15
+        ]
+      ]
+    }
+  ],
+  "why4": "The big lift needs three riders and its top gate only opens while someone on the ground works the 3-second button, which runs out during the 5-second ride; that someone is the fourth.",
+  "solution": [
+    "P4, P3, P2 hop the button at x=11 and stand on the main lift at x=14-17 (3/3); it rises 10 tiles to the upper slab (about 5 s).",
+    "P1 leans on the button at x=11 (3-second timer, restarted while touched) so gate A at x=18 is open when the lift arrives.",
+    "P4, P3, P2 jump off the lift together through gate A. P3 and P2 stand on the plate at x=22-23: gate E (x=40, under the slab) opens.",
+    "P4 touches the key at x=34, hops the service-lift shaft at x=42-43 and opens the door at x=45.",
+    "P1 hops the button, walks right under the slab, hops the 2-high bump at x=26-27, goes through gate E and rides the service lift (x=42-43, n=1) up to the slab.",
+    "Everyone hops the shaft to the door at x=45 and presses Down."
+  ]
+}

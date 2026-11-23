@@ -1,0 +1,69 @@
+{
+  "name": "Stopwatch",
+  "hint": "Beat the ring: one presses, everybody hurries.",
+  "par": 35,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 4,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 12
+    },
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 6
+    },
+    {
+      "wires": [
+        "F"
+      ],
+      "hold": 8
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 4,
+      "path": [
+        [38, 21],
+        [38, 14]
+      ]
+    }
+  ],
+  "why4": "The block needs four pushers and only weight 4 on the plate opens gate E while everyone walks through; then the lift only rises with all four aboard.",
+  "solution": [
+    "P3 stands against the button ledge at x=5; P4 jumps off P3's head onto the ledge (height 3).",
+    "P1 stands against the block's left side (x=15), P2 behind (x=14), P3 behind (x=13); x=12 is left free for P4.",
+    "P4 touches the button at x=2 (gate A at x=24 opens for 12 s), jumps down and joins the back of the conga at x=12 (about 9 tiles, 1.5 s).",
+    "All hold Right: the block passes gate A and the whole line is through when the block's left edge reaches x~29 (13 tiles at 2.5 t/s = 5.2 s; 6.7 s of 12 used). Keep pushing until the block stops against the bump at x=32, resting on the plate (4/4): gate E at x=36 opens for good.",
+    "Everyone hops the bump at x=32 and walks through gate E. P1, P2, P3 step onto the lift (x=38-41).",
+    "P4 touches the button at x=34 (shaft lid F opens for 8 s) and steps onto the lift (4 tiles). The lift (4/4) rises; riders are above the lid when the lift is at y=16 (5 tiles at 2 t/s = 2.5 s; ~3.5 s of 8 used).",
+    "At the top (y=14) everyone steps right onto the ledge; someone touches the key at x=44, opens the door at x=47; all press Down.",
+    "Recovery: if someone is left behind gate A, a friend beyond it touches the button at x=33 (hold 6 s) and the straggler walks through (9 tiles, 1.3 s). A block stopped at the closed gate is simply pushed on after another press of the ledge button. Gates never stay open for someone standing in them, so the timings above do not rely on that."
+  ]
+}

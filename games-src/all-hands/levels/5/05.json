@@ -1,0 +1,59 @@
+{
+  "name": "Flag Day",
+  "hint": "Touch a flag and that is where anyone who falls comes back.",
+  "par": 105,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 1,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 4,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 3,
+      "wires": [
+        "F"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": true
+    },
+    "F": {
+      "invert": false
+    }
+  },
+  "why4": "Three must pile on the pillar plate while the fourth goes in, the 4-block needs four pushers, and three must hold the spring lid open for the fourth.",
+  "solution": [
+    "Everyone jumps the 2-wide pit at x=7-8.",
+    "P4 jumps the pillar and goes on to gate A; P3 waits on the step at x=14-15. P2 jumps onto the plate on the 1-wide pillar at x=12 (height 1); P1 jumps onto P2's head; P3 jumps from the step onto P1's head (3/3): gate A at x=20 opens.",
+    "P4 walks through A and stands on the inner plate at x=22 (1/1). P3, P1, P2 climb down, walk through A and jump over P4; P4 steps off. Someone touches flag C at x=24.",
+    "Conga-push the 4-block (x=30-31) right: P3 against it, P1, P2, P4 behind, until it sits on the plate at x=37-40 (4/4): bridge E over the 6-wide pit at x=44-49 appears.",
+    "Everyone jumps over the block, crosses the bridge, touches flag C at x=52 and jumps the 2-wide pit at x=55-56.",
+    "P1, P2, P4 stand on the plate at x=59-61 (3/3): lid F over the spring at x=64 opens.",
+    "P3 hops onto the spring from x=63 (launched to 5.5), steers right up through the one-way shelf at x=65-67 (height 5; the feet clear it by 0.5), touches the key at x=66 and drops off the right end.",
+    "Everyone touches flag C at x=71, takes a running jump over the 3-wide pit at x=75-77, hops the 2-high step at x=81-83, jumps the 2-wide pit at x=86-87; P3 opens the door at x=92; all press Down.",
+    "Recovery: a 4-block pushed past the plate falls in the pit and returns to x=30; falls after a flag respawn at that flag."
+  ]
+}

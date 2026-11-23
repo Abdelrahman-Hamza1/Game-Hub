@@ -1,0 +1,60 @@
+{
+  "name": "Shift Change",
+  "hint": "Two lifts, two riders each. Somebody has to work the late shift.",
+  "par": 55,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 2,
+      "path": [
+        [
+          9,
+          23
+        ],
+        [
+          9,
+          13
+        ]
+      ]
+    },
+    {
+      "n": 2,
+      "path": [
+        [
+          30,
+          23
+        ],
+        [
+          30,
+          13
+        ]
+      ]
+    }
+  ],
+  "why4": "Each lift needs two riders and gate A needs two on a plate, so one pair has to hold the gate while the other pair rides: a third player alone can neither ride nor hold.",
+  "solution": [
+    "P4 and P3 walk right (one at a time over the left lift) and stand on the right lift at x=30-31 (2/2); it rises 10 tiles and waits at the top.",
+    "P2 and P1 stand on the left lift at x=9-10 (2/2); it rises to balcony Y. They jump onto the balcony together (a lift with one rider slides back down); P2 touches the key at x=16; both stand on the plate at x=13-14: gate A (x=32) opens.",
+    "P4 and P3 jump off the right lift together through gate A and stand on the inner plate at x=35-36.",
+    "P2 and P1 jump down off balcony Y, wait for the right lift to slide back down, ride it up and jump through gate A.",
+    "P2 hops over the others' heads and opens the door at x=42; all press Down."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Leg Up",
+  "hint": "Stand still and let a friend jump off your head.",
+  "par": 50,
+  "blocks": [
+    {
+      "n": 3
+    }
+  ],
+  "why4": "Three must be on the ledge to push the 3-block down, and one has to stay below to give them a leg up; with three only two get up.",
+  "solution": [
+    "P1 walks right and stands against the ledge wall (x=13).",
+    "P2 jumps onto P1's head, then jumps right onto the ledge (height 3). P3 and P4 do the same, one at a time.",
+    "P1 walks back left to x<=9, out from under the ledge edge.",
+    "P2, P3, P4 go to the right of the block (P2 at x=18 touching it, P3 at 19, P4 at 20) and all hold Left: the block slides off the ledge and lands on the lower floor next to the wall (x~12-13).",
+    "P1 jumps onto the block (height 1), then onto the ledge (2 more).",
+    "Someone touches the key at x=25; everyone jumps the 3-wide pit at x=31-33; the key carrier touches the door at x=36; all press Down.",
+    "Recovery: anyone who falls in the pit respawns below; once the block is down they climb back via the block. A block pushed right falls in the pit and comes back to its spawn."
+  ]
+}

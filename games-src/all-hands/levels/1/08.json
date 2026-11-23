@@ -1,0 +1,42 @@
+{
+  "name": "Backyard Fort",
+  "hint": "Everything you learned in the backyard, all at once.",
+  "par": 80,
+  "blocks": [
+    {
+      "n": 3
+    },
+    {
+      "n": 2
+    },
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The 4-block needs all four, and later three must get up the door step to push the 3-block down while a fourth gives them a leg up.",
+  "solution": [
+    "Everyone jumps the 2-wide pit at x=6-7.",
+    "P1 and P2 push the 2-block (x=10-11) right until it drops into the notch at x=15-17 and sits on the plate (2/2): gate A at x=22 opens for good.",
+    "Everyone walks through gate A and hops down onto floor B (one lower).",
+    "Conga-push the 4-block (x=31-32) right: P1 against it, P2, P3, P4 behind, all hold Right, until it stops against the plateau wall at x=36-37.",
+    "Everyone climbs: floor B -> top of the 4-block (2) -> plateau (2 more).",
+    "Key: P1 stands under the one-way shelf at x=44; P2 jumps onto P1's head; P3 climbs P1 and P2 and jumps up through the shelf, touches the key at x=44 and drops down.",
+    "Door step (height 3): P4 stands against it at x=49; P1, P2, P3 jump off P4's head onto the step one at a time.",
+    "P4 walks left to x<=46. P1, P2, P3 stand right of the 3-block (x=54, 55, 56) and push Left: it falls onto the plateau next to the step.",
+    "P4 jumps onto the 3-block, then onto the step. Everyone jumps the 3-wide pit at x=57-59; P3 opens the door at x=61; all press Down.",
+    "Recovery: a 3-block pushed right falls in the pit and returns to its spawn; anyone falling in the pit respawns at the start and comes back over the 4-block stairs."
+  ]
+}

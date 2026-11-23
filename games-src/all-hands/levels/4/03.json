@@ -1,0 +1,37 @@
+{
+  "name": "Ferry",
+  "hint": "Ride the ferry as a tower. Jump off the top when it reaches the wall.",
+  "par": 65,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "movers": [
+    {
+      "path": [
+        [12, 18],
+        [22, 18]
+      ],
+      "speed": 2
+    }
+  ],
+  "why4": "The far wall is 4 high and rises straight out of the pit, so climbers need a two-friend tower riding the ferry; the plate on top needs both climbers to let the tower through the tunnel.",
+  "solution": [
+    "When the ferry is docked at the near island (x=12-15), all four step on. P1 stands at its right end; P2 jumps onto P1's head; P3 and P4 stand behind P1 on the ferry.",
+    "P3 jumps onto P2's head (1.8 up). When the ferry nears the far end (its right edge at x>=24), P3 jumps right onto the block top (2.2 up).",
+    "P4 jumps onto P2's head and jumps onto the block top at the next docking.",
+    "P3 and P4 stand on the plate at x=28-29: gate A at the tunnel mouth (x=26) opens.",
+    "When the ferry docks again, P2 hops down and P1 and P2 walk off the ferry into the tunnel and out to x=34+. P3 touches the key at x=32; P3 and P4 jump down to the right.",
+    "Everyone jumps the 2-wide pit at x=37-38; P3 opens the door at x=42; all press Down.",
+    "Recovery: anyone who falls in the pit respawns on the near island and catches the ferry back."
+  ]
+}

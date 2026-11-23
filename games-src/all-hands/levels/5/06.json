@@ -1,0 +1,39 @@
+{
+  "name": "Night Scales",
+  "hint": "Three friends and a crate on one pan lift the fourth on the other.",
+  "par": 75,
+  "dark": true,
+  "buttons": [
+    {
+      "wires": [
+        "F"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "F": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 3,
+      "path": [
+        [24, 19],
+        [24, 14]
+      ]
+    }
+  ],
+  "why4": "The roof is 5 high: a pan only rises 3 when it is 3 lighter, so the rider needs three friends plus the crate on the other pan; then three ride the 3-lift.",
+  "solution": [
+    "P4 hops the crate and jumps over the left pan (standing on it would sink it) onto the right pan (x=19-21). P3 picks up the crate at x=10 and keeps holding it; P2 picks up the lantern at x=7.",
+    "P3 (with crate), P2 and P1 stand on the left pan (x=14-16). Weight 4 vs 1: the left pan sinks 3 and the right pan rises 3.",
+    "Once the pan has stopped, P4 jumps right from it onto the roof at x=22-23 (2 above the pan; it clears the edge by 0.5), drops through the hole at x=24-26 into the tunnel and touches the toggle button at its dead end (x=30): gate F at the tunnel mouth (x=22) opens.",
+    "The three climb out of the sunk left pan to the left: P2 and P1 jump onto P3's crate and out; P3 (now with 2 on the pan, it rises 1) jumps out and throws the crate away to the left.",
+    "Both pans level again. One at a time, each jumps over the left pan, walks across the right pan (it sinks 1) and hops up into the tunnel at x=22.",
+    "The lift needs 3 aboard and leaves as soon as it has them, so board as stacks: P3 on the lift's right end, P4 on P3's head, P1 at x=22-23 with P2 on its head, then P1 walks onto the lift (4 aboard). It rises through the roof hole; everyone jumps off onto the roof (P4 and P2 first, then P3 and P1 quickly: the lift sinks once fewer than 3 ride).",
+    "P4 touches the key at x=40 and opens the door at x=46; all press Down.",
+    "Recovery: if players land on the right pan it sinks into its 3-deep well; they climb out on each other's heads (the pan rises as each one leaves). Anyone inside the tunnel can always reach the toggle button to reopen F; the crate and lantern return to their spawns if lost."
+  ]
+}

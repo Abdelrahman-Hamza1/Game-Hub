@@ -1,0 +1,21 @@
+{
+  "name": "Lantern Light",
+  "hint": "Lights out! Whoever holds the lantern lights the way for everyone.",
+  "par": 50,
+  "dark": true,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "why4": "The block is marked 4 and fills the tunnel; it only moves with all four pushing in a line.",
+  "solution": [
+    "P4 (in front) picks up the lantern at x=7 (Grab) and leads; everyone jumps the 2-wide pit at x=10-11.",
+    "P3 stands under the one-way shelf at x=16; P2 jumps onto P3's head and up through the shelf (height 3), touches the key at x=16 and drops back down. The lantern carrier can't take the key: the key only jumps into empty hands.",
+    "Everyone jumps the 2-wide pit at x=20-21.",
+    "Line up in the tunnel: P4 against the block (x=27), P2, P3, P1 behind; all hold Right.",
+    "Push until the block drops into the hole at x=33-35; jump over it.",
+    "P2 (key) opens the door at x=45; all press Down.",
+    "Recovery: a lantern dropped in a pit returns to x=7."
+  ]
+}

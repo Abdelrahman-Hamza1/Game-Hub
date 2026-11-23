@@ -1,0 +1,48 @@
+{
+  "name": "Escapement",
+  "hint": "The lift wants three riders. The spring wants a friend upstairs.",
+  "par": 25,
+  "plates": [
+    {
+      "n": 1,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "E"
+      ],
+      "hold": 6
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 3,
+      "path": [
+        [5, 23],
+        [5, 14]
+      ]
+    }
+  ],
+  "why4": "The lift only rises with three aboard and the lid in its shaft only opens while a fourth stands on the plate; the fourth then needs someone upstairs to uncap the spring.",
+  "solution": [
+    "P4 stands on the plate at x=18: lid A in the lift shaft opens.",
+    "P1, P2, P3 step onto the lift (x=5-8); with 3/3 aboard it rises 9 tiles to the top floor (4.5 s). They step right onto the top floor (x>=9).",
+    "P1 touches the key at x=12. P2 walks to the button at x=24 and touches it: the cap gate E on the floor spring at x=24 opens for 6 s.",
+    "P4 leaves the plate (the lid closes, nobody needs it now), walks 6 tiles to x=24 and hops onto the spring (about 1.5 s): launched to 5.5, P4 steers right and lands on the mid ledge (x=26-31, height 5).",
+    "P4 hops onto the mid-ledge spring at x=29: launched 5.5 above the mid ledge, P4 steers left and lands on the top floor (its right end is x=26).",
+    "P1 opens the door at x=18; all press Down.",
+    "Recovery: anyone who drops back to the bottom uses the same spring route while a friend upstairs presses the button."
+  ]
+}

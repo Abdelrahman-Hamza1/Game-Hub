@@ -1,0 +1,45 @@
+{
+  "name": "Night Shift",
+  "hint": "One lantern, one timer, three pits you cannot see. Stay in the light.",
+  "par": 35,
+  "dark": true,
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 10
+    },
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 10
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    }
+  },
+  "why4": "The plate needs a pile of three on its one-tile pillar while the fourth carries the lantern through gate E to fetch the key.",
+  "solution": [
+    "P1 grabs the lantern at x=7 and leads (light radius 5). Everyone gathers at x=9-11.",
+    "P2 touches the button at x=10: gate A at x=34 opens for 10 s. All run right behind P1, jumping the pits at x=14-15, x=20-22 and x=27-28, and pass the gate (25 tiles, about 4.5 s with the jumps).",
+    "Pile on the 1-wide pillar at x=41: P2 jumps onto the plate; P3 jumps onto P2's head; P4 hops onto the step at x=43-44 and jumps onto P3's head (3/3): gate E at x=47 opens.",
+    "P1 (with the lantern) walks through gate E, jumps the 3-wide pit at x=50-52, sets the lantern down by the key (Down+Grab: the key only jumps into empty hands), touches the key at x=56 and comes back through gate E.",
+    "P1 opens the door at x=38; the pile climbs down; all press Down.",
+    "Recovery: anyone popped respawns at the start: a friend beyond gate A touches the button at x=36 (hold 10) while they press x=10 and run. A lantern lost in a pit returns to x=7; same trick to fetch it."
+  ]
+}

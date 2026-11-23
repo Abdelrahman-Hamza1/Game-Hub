@@ -1,0 +1,57 @@
+{
+  "name": "Rooftop Rally",
+  "hint": "Crates, throws, creaky boards and springs: the whole roof at once.",
+  "par": 75,
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "E"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": true
+    },
+    "A": {
+      "invert": false
+    }
+  },
+  "bridges": [
+    {
+      "n": 1
+    },
+    {
+      "n": 3
+    }
+  ],
+  "why4": "The trapdoor into the tunnel holds 3 and only breaks under all four; at the end two must be thrown up two roofs to hold the 2-plate that unlids the springs for the two left below.",
+  "solution": [
+    "Stage 1: P1 stands at x=6 (edge of the gap at x=4-5), grabs P2, faces left and throws P2 onto the balcony (x=1-3, height 3); P2 walks to the wall. P1 throws P3 the same way; P3 hops onto P2's head. P1 grabs the crate at x=12 and throws it from x=6 onto the balcony: plate 3/3, bridge E over the 7-wide pit (x=15-21) appears.",
+    "P1 and P4 walk over the bridge; P4 touches the toggle button at x=24: bridge E stays up for good. Everyone else jumps clear over the button (touching it again would toggle the bridge off).",
+    "P3 and P2 jump right off the balcony (over the crate and the gap at x=4-5) and walk over the bridge.",
+    "Stage 2: one at a time, everyone crosses the 1-bridge at x=30-35 (two on it, or one carrying a friend, and it crumbles; it is back after 3 s).",
+    "All four stand on the trapdoor at x=40-45: at weight 4 it breaks and everyone drops into the trench. Walk right through the tunnel and touch the flag at x=58 (new respawn point).",
+    "Stage 3: P4 stands at x=65 (edge of the gap at x=66-67), grabs P1 and throws right onto roof 1 (height 3, face x=68). P1 walks to x=73, picking up the key at x=70 on the way. P4 throws P3 the same way; P1 sets the key down in front of P3 (P3 picks it up).",
+    "On roof 1, P1 stands at x=73 (edge of the gap at x=74-75), throws P3, then P2 (thrown up by P4 too), onto roof 2 (3 higher, face x=76).",
+    "P3 and P2 stand on the plate at x=80-81 (2/2): both lids A open.",
+    "P4 steps into the hole at x=64 onto the spring and steers right onto roof 1, then into the hole at x=72 and steers onto roof 2. P1 steps into the hole at x=72 and steers onto roof 2.",
+    "P3 opens the door at x=88; all four press Down.",
+    "Recovery: anyone falling in a stage-3 gap respawns at the flag; while two hold the plate they come back up by the springs. A crate that falls returns to x=12."
+  ]
+}

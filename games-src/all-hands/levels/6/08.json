@@ -1,0 +1,102 @@
+{
+  "name": "Grand Clock",
+  "hint": "Everything you know, one turn of the big hand. Flags save your place.",
+  "par": 155,
+  "scroll": 1.0,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "H",
+        "G"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "F"
+      ],
+      "hold": 8
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "H": {
+      "invert": true
+    },
+    "G": {
+      "invert": true
+    }
+  },
+  "lifts": [
+    {
+      "n": 4,
+      "path": [
+        [
+          66,
+          17
+        ],
+        [
+          66,
+          11
+        ]
+      ]
+    }
+  ],
+  "movers": [
+    {
+      "path": [
+        [
+          77,
+          11
+        ],
+        [
+          82,
+          11
+        ]
+      ],
+      "speed": 2
+    }
+  ],
+  "bridges": [
+    {
+      "n": 2
+    }
+  ],
+  "scales": [
+    {}
+  ],
+  "why4": "Four push the tunnel block, three pile on the plate while the fourth takes the spring, the lift needs all four, and the last scale needs three players plus the crate against one rider.",
+  "solution": [
+    "Timing: 1 t/s scroll; the left edge reaches the tunnel (x=14) at t=14 s, the pile (x=34) at 34 s, the bridge (x=58) at 58 s, the lift (x=66) at 66 s, the ferry (x=77) at 77 s; the last screen (x>=90) is static from t=90 s. Flags at x=30, 54 and 86.",
+    "Tunnel: P1 against the block (x=14), P2, P3, P4 behind; push Right until the block drops into the hole at x=21-23 (5 tiles, 2 s). Touch the flag at x=30.",
+    "Pile: P1 jumps onto the plate on the 1-wide pillar at x=34; P2 jumps onto P1's head; P3 hops onto the step at x=36-37 and jumps onto P2's head (3/3): the cap E on the spring at x=42 opens.",
+    "P4 hops onto the spring at x=42: launched 5.5, steers right onto the 5-high block (x=44-50) and touches the button at x=48 (standing on top of the knob keeps it pressed): tunnel gate F at x=44 opens for 8 s.",
+    "The pile climbs down and walks through the tunnel (x=34 to x=51: 17 tiles + dismount, about 3.5 s of 8). P4 drops off the block's right end. Touch the flag at x=54.",
+    "Fragile bridge (holds 2) over the 6-wide pit at x=58-63: P1 and P2 cross, then P3 and P4.",
+    "All four step onto the lift at x=66-69 (4/4); it rises 6 tiles (3 s) to the deck at x=70.",
+    "Ferry: the 2-wide mover shuttles over the 7-wide gap between x=77 and x=82 (2 t/s); two ride per trip and step off at x=84. Touch the flag at x=86 and drop off the deck end at x=88. Wait for the screen before each trip: the view's right edge stops anyone more than ~29.5 tiles ahead of its left edge, and a rider held back by it is dragged into the gap.",
+    "Final screen: the pans start 1 above the floor. A 2-high tunnel runs under the door ledge (x=97-103, rows 15-16): P2, P3, P4 cross pan B one at a time (alone on it, it sinks level with the tunnel floor), go through the tunnel and the H pocket (x=104-105) onto pan A (x=106-113). P2 fetches the crate at x=115 first and keeps holding it (carried weight counts); P3 and P4 then stand on pan A (weight 4): pan B (x=94-96) rises 3, to 4 above the floor.",
+    "P1 waits on the 2-high step at x=91-93, jumps onto pan B (2 higher), then right onto the 6-high door ledge (x=97-103; 4 + 2.5 = 6.5) and touches the toggle button at x=99: gates H and G (inverted) close, making a staircase at x=105 (G, height 2) and x=104 (H, height 4); the tunnel's exit closes with them.",
+    "P1 hops the button, touches the key at x=100. The stairs are 2 above pan A only while pan A holds at most one weight: P2 hops out of pan A to the right and sets the crate down on the floor, P3 hops out too; P4 (alone on pan A, 2 below the floor) climbs pan A -> x=105 (G) -> x=104 (H) -> ledge; then P3 and P2 the same way, one at a time.",
+    "P1 opens the door at x=102; all press Down. (Nobody should touch the toggle at x=99 again; if someone does, the stairs vanish and touching it once more brings them back.)",
+    "Recovery: popped players drop in above the teammate furthest behind; if all four pop, everyone restarts at the last flag."
+  ]
+}

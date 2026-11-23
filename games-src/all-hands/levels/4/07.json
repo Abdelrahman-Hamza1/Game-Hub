@@ -1,0 +1,31 @@
+{
+  "name": "Tug of War",
+  "hint": "One pair pulls, the other pair goes up.",
+  "par": 35,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": false
+    }
+  },
+  "scales": [
+    {}
+  ],
+  "why4": "Lifting the coral-and-sky pair needs weight 3 on the far pan (the other pair plus the crate), and then both lifted players must hold the 2-plate to let the other pair in.",
+  "solution": [
+    "In the lobby, P1 and P2 walk left and drop through their own colour floors (coral x=4-5, sky x=8-9) into the left room; P3 and P4 walk right and drop through theirs (mint x=36-37, gold x=41-42) into the right room.",
+    "Left room: P2 stands on the left pan (x=14-16); P1 jumps onto P2's head. The left pan sinks 2.",
+    "Right room: P3 grabs the crate at x=38; P3 (carrying it) and P4 jump up onto the raised right pan (x=31-33). Weight 3 against 2: the left pan rises to +1.",
+    "P1 jumps from P2's head right onto the left ledge (x=17+, 2.1 up). The left pan rises to +2 and P2 jumps up too.",
+    "P1 and P2 stand on the plate at x=18-19: gate E (x=23, in the wall at ledge height) opens.",
+    "Right room: the right pan has sunk 3. P3 (still carrying the crate) climbs onto P4's head and jumps out to the right; P4, alone on the pan, is only 1 down and jumps out. P3 throws the crate away. Each in turn steps onto the empty right pan (it sinks 1) and hops up the stairs: x=30 (height 1), x=28-29 (height 2), x=25-27 (height 4). The first up touches the key at x=26 and walks left through gate E onto the left ledge; the other follows.",
+    "P1 and P2 step off the plate; the key carrier opens the door at x=21; all press Down."
+  ]
+}

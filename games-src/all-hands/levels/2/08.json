@@ -1,0 +1,80 @@
+{
+  "name": "The Workshop",
+  "hint": "Crates, blocks, switches, lifts: clock in and build your way out.",
+  "par": 90,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "H"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "H"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "E",
+        "F"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": true
+    },
+    "H": {
+      "invert": true
+    }
+  },
+  "lifts": [
+    {
+      "n": 4,
+      "path": [
+        [
+          56,
+          23
+        ],
+        [
+          56,
+          16
+        ]
+      ]
+    }
+  ],
+  "why4": "The 4-block that becomes the stairs and the roof lift both need all four, and the roof bridge only exists while two hold a plate on each side in turn.",
+  "solution": [
+    "Stage A: P1 stands against the shelf at x=5; P2 jumps off P1's head onto it (height 3), grabs the crate at x=2, walks off and drops it on the plate at x=14-15. P1 boosts P2 again for the crate at x=1. Plate 2/2: gate A at x=20 opens for good.",
+    "Stage B: P4 hops the 4-block, stands against gate E at x=30 and jumps into the switch above it (x=31, 3-4 high): E opens, F (x=40) closes. P4 hops back onto the block and drops in at the front of the line.",
+    "Conga-push the 4-block (x=26-27) right: P4 against it, P3, P2, P1 behind, through E until it rests against F (block at x=38-39).",
+    "P1 stands at x=32 and jumps into the switch from the right: E closes, F opens.",
+    "Key: P4 jumps onto P3's head under the one-way shelf at x=35-37 and jumps up through it, touching the key at x=36; P4 walks back over the others' heads to the end of the line. Conga-push the block on until it stops against the mezzanine wall (block at x=46-47).",
+    "Stage C: everyone climbs floor -> block top (2) -> mezzanine (2 more), and all four stand on the lift at x=56-59 (4/4); it rises 7 tiles to the roof. All four jump off together (with fewer than four aboard it slides back down).",
+    "Stage D: P1 and P4 stand on the near plate at x=63-64: bridge H over the 6-wide gap (x=68-73) appears. P3 and P2 cross and stand on the far plate at x=77-78; P1 and P4 cross.",
+    "P3 and P2 walk on past the door; P4 hops P1, opens the door at x=86; all press Down.",
+    "Recovery: the switch can be flipped back from either side; anyone who falls through the gap respawns at the start and comes back over the stairs, but the lift needs all four, so the others ride down (step off: it slides back) and up again with them."
+  ]
+}

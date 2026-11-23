@@ -1,0 +1,61 @@
+{
+  "name": "Night Market",
+  "hint": "The whole market after dark: share the light, share the plates, share the flags.",
+  "par": 125,
+  "dark": true,
+  "blocks": [
+    {
+      "n": 3
+    }
+  ],
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 3,
+      "wires": [
+        "F"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    }
+  },
+  "lifts": [
+    {
+      "n": 4,
+      "path": [
+        [43, 23],
+        [43, 15]
+      ]
+    }
+  ],
+  "bridges": [
+    {
+      "n": 2
+    }
+  ],
+  "why4": "The stall is 4 high (two bases, two on its plate), three must pile on the pillar plate for the fourth to spring up, the lift only rises with four aboard, and three must reach the terrace to push the 3-block down for the fourth.",
+  "solution": [
+    "P1 carries the lantern (x=7). Everyone jumps the 2-wide pit at x=9-10.",
+    "P4 stands against the stall at x=13; P3 jumps onto P4's head; P2 and P1 climb P4 and P3 and jump onto the stall roof (height 4).",
+    "P2 and P1 stand on the plate at x=16-17: tunnel gate A (x=14) opens; P3 hops down; P4 and P3 walk through the tunnel and touch flag C at x=24. P2 and P1 jump down.",
+    "P4 goes on to the spring lid (x=37). P3 waits on the step at x=32-33. P2 jumps onto the plate on the 1-wide pillar at x=30 (height 1); P1 jumps onto P2's head; P3 jumps from the step onto P1's head (3/3): lid F over the spring at x=38 opens.",
+    "P4 hops onto the spring (launched to 5.5), steers right up through the one-way shelf at x=39-41 (height 5; the feet clear it by 0.5), touches the key at x=40 and walks off onto the lift. The pile climbs down and hops the closed lid.",
+    "All four board the lift at x=43-46 as two stacks (P1 on P4, P2 on P3): it rises 8 tiles to the upper market. It sinks as soon as anyone leaves, so both stacks jump off together. Touch flag C at x=50.",
+    "Cross the awning bridge over the 7-wide pit at x=55-61 with at most two on it (it holds 2): P1, then P4, then P3 and P2. Touch flag C at x=65.",
+    "Terrace (height 3): P1 stands against it at x=69; P4, P3, P2 jump off P1's head onto the terrace and over the 3-block. P1 walks left to x<=65.",
+    "P2, P3, P4 stand right of the 3-block (x=74, 75, 76) and push Left: it falls onto the upper market floor next to the terrace. P1 jumps onto it, then onto the terrace.",
+    "Everyone jumps the 3-wide pit at x=84-86, hops the 2-high step at x=94-96; P4 opens the door at x=106; all press Down.",
+    "Recovery: a 3-block pushed right falls in the pit and returns; a key lost in a pit returns to the shelf at x=40 (drop down the lift shaft and redo the pillar and spring; the lift brings all four back up); falls respawn at the last flag. The terrace flag sits below the terrace (x=65) so popping on purpose can't skip the block step."
+  ]
+}

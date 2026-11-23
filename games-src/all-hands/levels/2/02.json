@@ -1,0 +1,38 @@
+{
+  "name": "Lean On It",
+  "hint": "A ring on a button is a timer. Keep touching it and it stays on.",
+  "par": 50,
+  "blocks": [
+    {
+      "n": 3
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 1
+    },
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 2
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "Three must push the 3-block through the gate while a fourth leans on the far button; with three, the presser cannot reach the block before the 2-second timer runs out.",
+  "solution": [
+    "P4, P3, P2 push the 3-block right (P4 against it at x=19, P3, P2 behind) until it rests against gate A (block at x=24-25).",
+    "P1 walks left and leans on the button at x=1 (2-second timer, restarted while touched): gate A at x=26 opens.",
+    "P4, P3, P2 push the block through the gate and on to the plateau wall (block ends at x=34-35).",
+    "P2 stands under the inner button at x=27 (on the gate's right side, 3 high; 1-second timer) and keeps jumping into it; P1 runs right through the gate (about 4.5 s).",
+    "Everyone climbs: floor -> block top (2) -> plateau (2 more).",
+    "P4 touches the key at x=42; everyone jumps the 2-wide pit at x=46-47; P4 opens the door at x=52; all press Down."
+  ]
+}

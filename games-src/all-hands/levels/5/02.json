@@ -1,0 +1,35 @@
+{
+  "name": "Shadow Swap",
+  "hint": "The bridge only shines while two friends stand on a plate. Take the light across first.",
+  "par": 45,
+  "dark": true,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 2,
+      "wires": [
+        "E"
+      ]
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": true
+    }
+  },
+  "why4": "The bridge needs weight 2 on a plate: two hold it while two cross and pile onto the far plate; a lone player on either side cannot hold it.",
+  "solution": [
+    "P4 (in front) picks up the lantern at x=7.",
+    "P1 and P2 stand on the near plate at x=10-11: the bridge E over the 6-wide pit at x=16-21 appears.",
+    "P4 (lantern) and P3 cross the bridge. P3 jumps onto the plate on the 1-wide pillar at x=26 (height 1); P4 jumps onto P3's head (2/2).",
+    "P1 and P2 cross the bridge (P4's lantern lights its far end); then P4 and P3 hop down to the right.",
+    "P3 stands under the one-way shelf at x=34; P2 jumps off P3's head up through the shelf (height 3), touches the key and drops down.",
+    "Everyone jumps the 2-wide pit at x=38-39; P2 opens the door at x=44; all press Down.",
+    "Recovery: whoever falls in the big pit respawns at the start; the pair on the far side stacks on the pillar plate again to bring them over."
+  ]
+}

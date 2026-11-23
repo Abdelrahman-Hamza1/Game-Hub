@@ -1,0 +1,27 @@
+{
+  "name": "Pile On",
+  "hint": "A plate counts everyone standing on it, even on each other's heads.",
+  "par": 35,
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The plate needs a weight of 3 but only fits one player, so three must pile up on it while the fourth fetches the key.",
+  "solution": [
+    "P1 jumps onto the plate on the 1-wide pillar at x=10 (height 1).",
+    "P2 jumps from the floor onto P1's head (top at ~1.9).",
+    "P3 hops onto the 1-high step at x=12-13, then jumps onto P2's head. The counter shows 3/3 and gate A at x=21 opens.",
+    "P4 walks through the gate, hops the 2-high step at x=26-27, jumps the 3-wide pit at x=30-32, hops onto the 2-high step at x=35-37, touches the key at x=39 and comes back the same way.",
+    "P4 touches the door at x=17 with the key. P3, P2, P1 climb down; all four press Down at the door.",
+    "Recovery: if P4 falls in the pit with the key, the key returns to x=39 and P4 to the start; the pile re-forms."
+  ]
+}

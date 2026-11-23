@@ -1,0 +1,56 @@
+{
+  "name": "Four Chimes",
+  "hint": "Four bells, four rooms, one count: three, two, one, go!",
+  "par": 25,
+  "leash": 8,
+  "buttons": [
+    {
+      "wires": [
+        "F"
+      ],
+      "hold": 6
+    },
+    {
+      "wires": [
+        "G"
+      ],
+      "hold": 6
+    },
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 6
+    },
+    {
+      "wires": [
+        "E"
+      ],
+      "hold": 6
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "G": {
+      "invert": false
+    }
+  },
+  "why4": "The shaft has four lids in a row, each opened by a button that only one colour can reach, so all four players must press at the same time.",
+  "solution": [
+    "Buttons: cell 3 (x=9, y=13, through colour gate 3 at x=11, floor 2 high) opens lid F; cell 4 (x=24, y=13, gate 4 at x=22) opens lid G; cell 1 (x=9, y=15, gate 1 at x=11, 1 tile tall) opens lid A; cell 2 (x=24, y=15, gate 2 at x=22) opens lid E. Each holds for 6 s. The leash (8) is long enough: the cells are 6.5 tiles from the hall centre.",
+    "P1 touches the key at x=14 and walks left through gate 1 to the button at x=9 (y=15).",
+    "P3 jumps onto the 2-high step at x=11 and walks left through gate 3 to the button at x=9 (y=13).",
+    "P2 walks right through gate 2 to the button at x=24 (y=15). P4 jumps onto the step at x=22 and walks through gate 4 to the button at x=24 (y=13).",
+    "On a count, all four touch their buttons, then leave together and run to the shaft at x=16-17 (about 6 tiles plus a 2-tile drop, ~1.5 s) and drop through lids A, E, F, G (8 tiles of fall, ~0.7 s). About 2.5 s of the 6 s are used.",
+    "In the vault P1 opens the door at x=22; all press Down.",
+    "Recovery: a lid that closes on someone pushes them out of its gap; anyone left on a closed lid in the shaft waits there while the others repeat the count (lids are 2 apart, so they can also hop up through open lids)."
+  ]
+}

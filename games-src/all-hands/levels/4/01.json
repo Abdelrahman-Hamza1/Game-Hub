@@ -1,0 +1,54 @@
+{
+  "name": "Colour Coded",
+  "hint": "A floor in your colour is not a floor for you. Fall in!",
+  "par": 45,
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "E"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "F"
+      ],
+      "toggle": true
+    },
+    {
+      "wires": [
+        "G"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "G": {
+      "invert": false
+    }
+  },
+  "why4": "Each well is capped by one colour and holds the button for one of the four gates in a row before the door; only player n can drop into well n.",
+  "solution": [
+    "P1 walks onto the coral floor at x=8-10 and falls through into the well; walks right to touch the button at x=10 (gate A at x=29 opens); jumps up-left out of the well onto the floor at x=7.",
+    "P2 does the same in the sky-blue well at x=13-15 (button x=15 opens gate E at x=31).",
+    "P3 drops into the mint well at x=18-20, touches the key at x=19 (carries it) and the button at x=20 (gate F at x=33 opens), jumps out to the left.",
+    "P4 drops into the gold well at x=23-25, touches the button at x=25 (gate G at x=35 opens), jumps out to the left.",
+    "Everyone walks right through the four open gates; P3 opens the door at x=40; all press Down.",
+    "Note: the buttons are toggles; touching one a second time closes its gate again, so touch it once more to reopen."
+  ]
+}

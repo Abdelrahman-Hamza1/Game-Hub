@@ -1,0 +1,64 @@
+{
+  "name": "Four Lanes",
+  "hint": "One friend per lane, one rope for all. Every plate opens somebody else's gate.",
+  "par": 30,
+  "leash": 7,
+  "plates": [
+    {
+      "n": 1,
+      "wires": [
+        "E"
+      ]
+    },
+    {
+      "n": 1,
+      "wires": [
+        "F"
+      ]
+    },
+    {
+      "n": 1,
+      "wires": [
+        "G"
+      ]
+    },
+    {
+      "n": 1,
+      "wires": [
+        "A"
+      ]
+    },
+    {
+      "n": 1,
+      "wires": [
+        "H"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    },
+    "E": {
+      "invert": false
+    },
+    "F": {
+      "invert": false
+    },
+    "G": {
+      "invert": false
+    },
+    "H": {
+      "invert": false
+    }
+  },
+  "why4": "Each player is sealed in their own lane and every lane gate is held open by a plate in a different lane, so all four lanes must be manned.",
+  "solution": [
+    "Each player starts in their own lane: P1 top, P2, P3, P4 bottom. Leash 7: the lanes are 3 apart, so nobody gets more than ~13 tiles ahead of the rest; every plate is placed for that.",
+    "P4 stands on the plate at x=5 (lane 4): gate A (lane 1, x=7) opens. P1 walks through and stands on the plate at x=9: gate E (lane 2) opens.",
+    "P2 walks through E and stands on the plate at x=9: gate F (lane 3) opens. P3 walks through F and stands on the plate at x=9: gate G (lane 4) opens.",
+    "P4 steps off (A closes behind P1), walks through G and stands on the plate at x=11: gate H (lane 1, x=14) opens.",
+    "P1 steps off (E closes behind P2), walks through H and touches the key at x=18. P2 and P3 step off their plates.",
+    "All four walk right together (leash); one by one they drop down the shaft at x=30-31 into lane 4 (stand still while falling, or you land a lane too high); P1 opens the door at x=40; all press Down."
+  ]
+}

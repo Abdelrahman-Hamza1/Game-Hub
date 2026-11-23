@@ -1,0 +1,28 @@
+{
+  "name": "Boing",
+  "hint": "Hop onto a spring and it throws you 5 high. Steer in the air.",
+  "par": 50,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The 4-high step needs two friends underneath for each climber, and the lid over the spring only opens with the two climbers on the 2-plate up top.",
+  "solution": [
+    "Each player hops onto the spring at x=11 (walking onto it does nothing; land on it squarely) and holds Right in the air: it launches 5.5 high and they land on the cliff top (height 5, face at x=14).",
+    "The first one up (say P4) touches the key at x=20 on the way and later sets it down in front of P3 (P3 picks it up).",
+    "P4 stands against the step at x=29; P3 jumps onto P4's head.",
+    "P2 jumps onto P3's head, then right onto the step (4 high). P1 does the same.",
+    "P2 and P1 stand on the plate at x=33-34 (2/2): the lid A at x=27 (flush with the cliff top) opens, showing a spring one tile down.",
+    "P3 hops down; P3 and then P4 each step into the hole at x=27, land on the spring and steer right onto the step (launch peaks 4.5 above the cliff top; the step is 4).",
+    "P3 opens the door at x=44; all four press Down."
+  ]
+}

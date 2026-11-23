@@ -1,0 +1,36 @@
+{
+  "name": "Make Weight",
+  "hint": "1 + 2 + a crate = 4. Blocks count by their number.",
+  "par": 75,
+  "blocks": [
+    {
+      "n": 2
+    },
+    {
+      "n": 1
+    }
+  ],
+  "plates": [
+    {
+      "n": 4,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The 2-block on the 4-high tower needs two pushers up there, and getting two climbers up takes two friends underneath; without it the plate only reaches 4 if two players stay on it.",
+  "solution": [
+    "P4 hops the 1-block and the crate and stands against the tower at x=17; P3 jumps onto P4's head.",
+    "P2 climbs P3 and P4 onto the tower top (height 4), hops onto the 2-block and goes right of it (x=23); P1 does the same (x=22).",
+    "P3 jumps down, picks up the crate at x=11 and carries it back left past the 1-block; P4 walks back left of the 1-block (x=7). Nobody stays under the tower edge.",
+    "P1 and P2 push the 2-block Left: it falls off the tower onto the plate (x=15-16).",
+    "P4 pushes the 1-block right until it stops against the 2-block (x=14) and hops onto it; P3 drops the crate on the left end of the plate (x=13): 2 + 1 + 1 = 4/4, gate A opens for good.",
+    "P4 and P3 walk over the blocks and through the tunnel under the tower; P2 and P1 jump down off the tower's right side.",
+    "Everyone takes a running jump over the 3-wide pit at x=33-35; P4 touches the key at x=40 and opens the door at x=46; all press Down."
+  ]
+}

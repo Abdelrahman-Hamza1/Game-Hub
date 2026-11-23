@@ -1,0 +1,29 @@
+{
+  "name": "Chimney Pots",
+  "hint": "Crates can't climb either. Pass it up!",
+  "par": 45,
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The top plate needs weight 3, but only two players can be thrown up two roofs (each roof leaves a thrower behind), so the crate has to be thrown up too; with three players the top holds one player and the crate, 2/3.",
+  "solution": [
+    "P4 and P3 hop over the key at x=6 and the crate at x=8; P4 stands at x=12 (edge of the gap at x=13-14), P3 beside. P4 grabs P3 and throws right onto roof 1 (height 3, face x=15).",
+    "P2 picks up the key and is thrown up to roof 1 by P4; on roof 1, P3 stands at x=21 (edge of the gap at x=22-23), grabs P2 and throws right onto roof 2 (3 higher, face x=24). P1 goes up the same two throws.",
+    "P4 grabs the crate at x=8 and throws it from x=12 onto roof 1; P3 picks it up and throws it from x=21 onto roof 2.",
+    "P1 picks up the crate and stands on the plate at x=29-31 holding it, next to P2 (P1 + crate + P2 = 3/3): both lids A open.",
+    "P4 steps into the hole at x=11 onto the spring and steers right onto roof 1, then steps into the hole at x=20 and steers onto roof 2.",
+    "P3 steps into the hole at x=20 and steers onto roof 2.",
+    "P2 opens the door at x=40; all four press Down.",
+    "Recovery: a crate that falls in a gap returns to x=8; throw it up again."
+  ]
+}

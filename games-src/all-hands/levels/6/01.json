@@ -1,0 +1,44 @@
+{
+  "name": "First Tick",
+  "hint": "The clock is running: the screen will not wait for you.",
+  "par": 105,
+  "scroll": 1.0,
+  "blocks": [
+    {
+      "n": 4
+    }
+  ],
+  "plates": [
+    {
+      "n": 3,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "wires": [
+        "A"
+      ],
+      "hold": 8
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The tunnel block needs four pushers, and the plate needs a pile of three while the fourth slips through the gate to hit the button.",
+  "solution": [
+    "Timing: the screen scrolls 1 tile/s; its left edge reaches the tunnel (x=20) at t=20 s and the pile plate (x=40) at t=40 s, and the team can be at most 30 tiles ahead of it.",
+    "Everyone hops the bump at x=10-11 and jumps the 2-wide pit at x=14-15.",
+    "Conga in the tunnel: P1 against the block (x=20), P2, P3, P4 behind; all hold Right until the block drops into the hole at x=27-29 (6 tiles at 2.5 t/s = 2.4 s).",
+    "At the 1-wide pillar (x=40): P1 jumps onto the plate on top; P2 jumps from the floor onto P1's head; P3 hops onto the step at x=42-43 and jumps onto P2's head (3/3): gate A at x=48 opens.",
+    "P4 walks through gate A and touches the button at x=51 (hold 8 s); P4 keeps touching it.",
+    "P3, P2, P1 climb down and walk through the gate (9 tiles + dismount, about 2.5 s of the 8 s).",
+    "Everyone hops the 2-high step at x=56-57 and jumps the 3-wide pit at x=60-62, then waits for the screen to stop (left edge at x=66, t=66 s).",
+    "Final screen: the key sits on a 3-high shelf at x=74-76 (row 12) that the team walks under. P1 stands just left of it (x=73); P2 jumps off P1's head onto it, touches the key at x=75, jumps down on the far side. All jump the 2-wide pit at x=82-83; P2 opens the door at x=92; all press Down.",
+    "Recovery: a popped player drops back in above the teammate furthest behind."
+  ]
+}

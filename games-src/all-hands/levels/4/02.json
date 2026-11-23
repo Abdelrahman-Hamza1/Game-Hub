@@ -1,0 +1,30 @@
+{
+  "name": "Seesaw",
+  "hint": "The heavier pan sinks, the other one rises. Everyone counts, crates too.",
+  "par": 50,
+  "buttons": [
+    {
+      "wires": [
+        "E"
+      ],
+      "toggle": true
+    }
+  ],
+  "gates": {
+    "E": {
+      "invert": false
+    }
+  },
+  "scales": [
+    {}
+  ],
+  "why4": "The tower is 5 high, so the rider needs the right pan up 3: that takes the rider against three players plus the crate on the left pan.",
+  "solution": [
+    "P4 stands on the right pan (x=16-18) first; it sinks 1 and the left pan rises 1.",
+    "P1 grabs the crate at x=6 and, carrying it, hops onto the left pan (x=10-12); P2 and P3 hop onto it too (three side by side). Weight 4 against 1: the right pan rises 3 (its top 2 below the tower top).",
+    "P4 jumps right onto the tower (x=19+), touches the button at x=22 (gate E at the tunnel mouth opens) and the key at x=25.",
+    "Leaving the sunk left pan: P3 jumps off P2's head out of the shaft; P2 jumps off P1's head; with only P1 and the crate left the pan sits 2 down, so P1 (still carrying the crate) jumps out.",
+    "P1, P2, P3 walk right over the pans (level again) and through the tunnel under the tower; P4 jumps down to the right.",
+    "Everyone jumps the 2-wide pit at x=30-31; P4 opens the door at x=36; all press Down."
+  ]
+}

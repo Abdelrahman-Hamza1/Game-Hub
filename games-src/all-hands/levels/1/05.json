@@ -1,0 +1,27 @@
+{
+  "name": "Garden Wall",
+  "hint": "Two friends make a tall step. Whoever gets up can let the others through.",
+  "par": 50,
+  "plates": [
+    {
+      "n": 2,
+      "wires": [
+        "A"
+      ]
+    }
+  ],
+  "gates": {
+    "A": {
+      "invert": false
+    }
+  },
+  "why4": "The wall is 4 high, so each climber needs two friends underneath; the plate on top needs the two climbers, so two bases plus two climbers.",
+  "solution": [
+    "P1 stands against the wall at x=13; P2 jumps onto P1's head.",
+    "P3 jumps onto P2's head (top ~1.8), then jumps right onto the wall top (height 4). P4 does the same.",
+    "P3 and P4 stand on the plate at x=16-17 (2/2): gate A at the tunnel mouth (x=14) opens.",
+    "P2 hops down; P1 and P2 walk through the tunnel to the right side.",
+    "P3 and P4 jump down to the right. Everyone jumps the 2-wide pit at x=27-28.",
+    "Someone hops the 2-high step at x=33-35 and touches the key at x=34; the carrier opens the door at x=40; all press Down."
+  ]
+}
